@@ -43,8 +43,6 @@
   /*#endif*/
 
   --alt-text-opacity: 0.8;
-  --alt-text-add-image: url(images/altText_add.svg);
-  --alt-text-done-image: url(images/altText_done.svg);
   --alt-text-bg-color: rgba(43, 42, 51, var(--alt-text-opacity));
   --alt-text-fg-color: #fbfbfe;
   --alt-text-border-color: var(--alt-text-bg-color);
