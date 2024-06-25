@@ -69,24 +69,10 @@ const DEFAULT_RANGE_CHUNK_SIZE = 65536; // 2^16 = 65536
 const RENDERING_CANCELLED_TIMEOUT = 100; // ms
 const DELAYED_CLEANUP_TIMEOUT = 5000; // ms
 
-let DefaultCanvasFactory = DOMCanvasFactory;
-let DefaultCMapReaderFactory = DOMCMapReaderFactory;
-let DefaultFilterFactory = DOMFilterFactory;
-let DefaultStandardFontDataFactory = DOMStandardFontDataFactory;
-
-if (typeof PDFJSDev !== "undefined" && PDFJSDev.test("GENERIC") && isNodeJS) {
-  const {
-    NodeCanvasFactory,
-    NodeCMapReaderFactory,
-    NodeFilterFactory,
-    NodeStandardFontDataFactory,
-  } = require("./node_utils.js");
-
-  DefaultCanvasFactory = NodeCanvasFactory;
-  DefaultCMapReaderFactory = NodeCMapReaderFactory;
-  DefaultFilterFactory = NodeFilterFactory;
-  DefaultStandardFontDataFactory = NodeStandardFontDataFactory;
-}
+const DefaultCanvasFactory = DOMCanvasFactory;
+const DefaultCMapReaderFactory = DOMCMapReaderFactory;
+const DefaultFilterFactory = DOMFilterFactory;
+const DefaultStandardFontDataFactory = DOMStandardFontDataFactory;
 
 let createPDFNetworkStream;
 if (typeof PDFJSDev === "undefined") {
@@ -103,22 +89,14 @@ if (typeof PDFJSDev === "undefined") {
       : new PDFNetworkStream(params);
   };
 } else if (PDFJSDev.test("GENERIC || CHROME")) {
-  if (PDFJSDev.test("GENERIC") && isNodeJS) {
-    const { PDFNodeStream } = require("./node_stream.js");
+  const { PDFNetworkStream } = require("./network.js");
+  const { PDFFetchStream } = require("./fetch_stream.js");
 
-    createPDFNetworkStream = params => {
-      return new PDFNodeStream(params);
-    };
-  } else {
-    const { PDFNetworkStream } = require("./network.js");
-    const { PDFFetchStream } = require("./fetch_stream.js");
-
-    createPDFNetworkStream = params => {
-      return isValidFetchUrl(params.url)
-        ? new PDFFetchStream(params)
-        : new PDFNetworkStream(params);
-    };
-  }
+  createPDFNetworkStream = params => {
+    return isValidFetchUrl(params.url)
+      ? new PDFFetchStream(params)
+      : new PDFNetworkStream(params);
+  };
 }
 
 /**

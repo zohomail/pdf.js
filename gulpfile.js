@@ -11,6 +11,9 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * This file is modified in order to generate the minfied version of
+ * pdf_viewer.js file in the pdfjs-dist/web.
  */
 /* eslint-env node */
 
@@ -68,7 +71,7 @@ const COMMON_WEB_FILES = [
 ];
 const MOZCENTRAL_DIFF_FILE = "mozcentral.diff";
 
-const DIST_REPO_URL = "https://github.com/mozilla/pdfjs-dist";
+const DIST_REPO_URL = "https://github.com/zohomail/pdf.js";
 
 const builder = require("./external/builder/builder.js");
 
@@ -77,7 +80,7 @@ const config = JSON.parse(fs.readFileSync(CONFIG_FILE).toString());
 
 const ENV_TARGETS = [
   "last 2 versions",
-  "Chrome >= 88",
+  "Chrome >= 70",
   "Firefox ESR",
   "Safari >= 14.1",
   "Node >= 16",
@@ -745,15 +748,16 @@ function createBuildNumber(done) {
   exec(
     "git log --format=oneline " + config.baseVersion + "..",
     function (err, stdout, stderr) {
-      let buildNumber = 0;
-      if (!err) {
-        // Build number is the number of commits since base version
-        buildNumber = stdout ? stdout.match(/\n/g).length : 0;
-      } else {
-        console.log(
-          "This is not a Git repository; using default build number."
-        );
-      }
+      const buildNumber = 0;
+
+      // if (!err) {
+      //   // Build number is the number of commits since base version
+      //   buildNumber = stdout ? stdout.match(/\n/g).length : 0;
+      // } else {
+      //   console.log(
+      //     "This is not a Git repository; using default build number."
+      //   );
+      // }
 
       console.log("Extension build number: " + buildNumber);
 
@@ -813,10 +817,9 @@ function buildDefaultPreferences(defines, dir) {
 }
 
 function getDefaultPreferences(dir) {
-  const { AppOptions, OptionKind } = require("./" +
-    DEFAULT_PREFERENCES_DIR +
-    dir +
-    "web/app_options.js");
+  const { AppOptions, OptionKind } = require(
+    "./" + DEFAULT_PREFERENCES_DIR + dir + "web/app_options.js"
+  );
 
   return AppOptions.getAll(OptionKind.PREFERENCE);
 }
@@ -949,6 +952,8 @@ function buildGeneric(defines, dir) {
       .pipe(gulp.dest(dir + "web")),
     createCMapBundle().pipe(gulp.dest(dir + "web/cmaps")),
     createStandardFontBundle().pipe(gulp.dest(dir + "web/standard_fonts")),
+
+    createComponentsBundle(defines).pipe(gulp.dest(dir + "components")),
 
     preprocessHTML("web/viewer.html", defines).pipe(gulp.dest(dir + "web")),
     preprocessCSS("web/viewer.css", defines)
@@ -1119,6 +1124,8 @@ function buildMinified(defines, dir) {
     createCMapBundle().pipe(gulp.dest(dir + "web/cmaps")),
     createStandardFontBundle().pipe(gulp.dest(dir + "web/standard_fonts")),
 
+    createComponentsBundle(defines).pipe(gulp.dest(dir + "components")),
+
     preprocessHTML("web/viewer.html", defines).pipe(gulp.dest(dir + "web")),
     preprocessCSS("web/viewer.css", defines)
       .pipe(
@@ -1147,6 +1154,10 @@ async function parseMinified(dir) {
     "pdf.js": pdfFile,
     "viewer.js": fs.readFileSync(dir + "/web/viewer.js").toString(),
   };
+
+  const pdfViewerComponentFile = fs
+    .readFileSync(dir + "components/pdf_viewer.js")
+    .toString();
 
   console.log();
   console.log("### Minifying js files");
@@ -1182,6 +1193,11 @@ async function parseMinified(dir) {
     (await Terser.minify(pdfImageDecodersFile, options)).code
   );
 
+  fs.writeFileSync(
+    dir + "components/pdf_viewer.min.js",
+    (await Terser.minify(pdfViewerComponentFile, options)).code
+  );
+
   console.log();
   console.log("### Cleaning js files");
 
@@ -1190,6 +1206,13 @@ async function parseMinified(dir) {
   fs.unlinkSync(dir + "/build/pdf.js");
   fs.unlinkSync(dir + "/build/pdf.worker.js");
   fs.unlinkSync(dir + "/build/pdf.sandbox.js");
+
+  fs.unlinkSync(dir + "components/pdf_viewer.js");
+
+  fs.renameSync(
+    dir + "/components/pdf_viewer.min.js",
+    dir + "/components/pdf_viewer.js"
+  );
 
   fs.renameSync(dir + "/build/pdf.min.js", dir + "/build/pdf.js");
   fs.renameSync(dir + "/build/pdf.worker.min.js", dir + "/build/pdf.worker.js");
@@ -2146,11 +2169,10 @@ gulp.task(
 function packageJson() {
   const VERSION = getVersionJSON().version;
 
-  const DIST_NAME = "pdfjs-dist";
-  const DIST_DESCRIPTION = "Generic build of Mozilla's PDF.js library.";
+  const DIST_NAME = "@zmc/pdfjs-dist";
+  const DIST_DESCRIPTION =
+    "Enhanced version with additioanl exports from generic build of Mozilla's PDF.js library.";
   const DIST_KEYWORDS = ["Mozilla", "pdf", "pdf.js"];
-  const DIST_HOMEPAGE = "http://mozilla.github.io/pdf.js/";
-  const DIST_BUGS_URL = "https://github.com/mozilla/pdf.js/issues";
   const DIST_LICENSE = "Apache-2.0";
 
   const npmManifest = {
@@ -2160,16 +2182,7 @@ function packageJson() {
     types: "types/src/pdf.d.ts",
     description: DIST_DESCRIPTION,
     keywords: DIST_KEYWORDS,
-    homepage: DIST_HOMEPAGE,
-    bugs: DIST_BUGS_URL,
     license: DIST_LICENSE,
-    optionalDependencies: {
-      canvas: "^2.11.2",
-    },
-    dependencies: {
-      "path2d-polyfill": "^2.0.1",
-      "web-streams-polyfill": "^3.2.1",
-    },
     browser: {
       canvas: false,
       fs: false,
@@ -2212,7 +2225,7 @@ gulp.task(
 
       rimraf.sync(DIST_DIR);
       mkdirp.sync(DIST_DIR);
-      safeSpawnSync("git", ["clone", "--depth", "1", DIST_REPO_URL, DIST_DIR]);
+      // safeSpawnSync("git", ["clone", "--depth", "1", DIST_REPO_URL, DIST_DIR]);
 
       console.log();
       console.log("### Overwriting all files");
@@ -2263,6 +2276,10 @@ gulp.task(
           .pipe(rename("pdf.image_decoders.min.js"))
           .pipe(gulp.dest(DIST_DIR + "image_decoders/")),
         gulp
+          .src(MINIFIED_DIR + "components/pdf_viewer.js")
+          .pipe(rename("pdf_viewer.min.js"))
+          .pipe(gulp.dest(DIST_DIR + "web/")),
+        gulp
           .src(MINIFIED_LEGACY_DIR + "build/pdf.js")
           .pipe(rename("pdf.min.js"))
           .pipe(gulp.dest(DIST_DIR + "legacy/build/")),
@@ -2278,6 +2295,10 @@ gulp.task(
           .src(MINIFIED_LEGACY_DIR + "image_decoders/pdf.image_decoders.js")
           .pipe(rename("pdf.image_decoders.min.js"))
           .pipe(gulp.dest(DIST_DIR + "legacy/image_decoders/")),
+        gulp
+          .src(MINIFIED_LEGACY_DIR + "components/pdf_viewer.js")
+          .pipe(rename("pdf_viewer.min.js"))
+          .pipe(gulp.dest(DIST_DIR + "legacy/web/")),
         gulp
           .src(COMPONENTS_DIR + "**/*", { base: COMPONENTS_DIR })
           .pipe(gulp.dest(DIST_DIR + "web/")),
@@ -2295,7 +2316,15 @@ gulp.task(
         gulp
           .src(TYPES_DIR + "**/*", { base: TYPES_DIR })
           .pipe(gulp.dest(DIST_DIR + "types/")),
+        gulp
+          .src(DIST_DIR + "/**/*", { base: DIST_DIR })
+          .pipe(gulp.dest("pdfjs-dist")),
       ]);
+    },
+    function copyDistToOutside() {
+      return gulp
+        .src(DIST_DIR + "/**/*", { base: DIST_DIR })
+        .pipe(gulp.dest("pdfjs-dist"));
     }
   )
 );

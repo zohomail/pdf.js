@@ -24,28 +24,6 @@ import { isNodeJS } from "./is_node.js";
   globalThis.DOMMatrix = __non_webpack_require__("canvas").DOMMatrix;
 })();
 
-// Support: Node.js
-(function checkPath2D() {
-  if (globalThis.Path2D || !isNodeJS) {
-    return;
-  }
-  const { CanvasRenderingContext2D } = __non_webpack_require__("canvas");
-  const { polyfillPath2D } = __non_webpack_require__("path2d-polyfill");
-
-  globalThis.CanvasRenderingContext2D = CanvasRenderingContext2D;
-  polyfillPath2D(globalThis);
-})();
-
-// Support: Node.js<18.0.0
-(function checkReadableStream() {
-  if (globalThis.ReadableStream || !isNodeJS) {
-    return;
-  }
-  globalThis.ReadableStream = __non_webpack_require__(
-    "web-streams-polyfill/dist/ponyfill.js"
-  ).ReadableStream;
-})();
-
 // Support: Firefox<90, Chrome<92, Safari<15.4, Node.js<16.6.0
 (function checkArrayAt() {
   if (Array.prototype.at) {
