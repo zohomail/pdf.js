@@ -77,22 +77,35 @@ const DEFAULT_RANGE_CHUNK_SIZE = 65536; // 2^16 = 65536
 const RENDERING_CANCELLED_TIMEOUT = 100; // ms
 const DELAYED_CLEANUP_TIMEOUT = 5000; // ms
 
-const DefaultCanvasFactory =
-  typeof PDFJSDev !== "undefined" && PDFJSDev.test("GENERIC") && isNodeJS
-    ? NodeCanvasFactory
-    : DOMCanvasFactory;
-const DefaultCMapReaderFactory =
-  typeof PDFJSDev !== "undefined" && PDFJSDev.test("GENERIC") && isNodeJS
-    ? NodeCMapReaderFactory
-    : DOMCMapReaderFactory;
-const DefaultFilterFactory =
-  typeof PDFJSDev !== "undefined" && PDFJSDev.test("GENERIC") && isNodeJS
-    ? NodeFilterFactory
-    : DOMFilterFactory;
-const DefaultStandardFontDataFactory =
-  typeof PDFJSDev !== "undefined" && PDFJSDev.test("GENERIC") && isNodeJS
-    ? NodeStandardFontDataFactory
-    : DOMStandardFontDataFactory;
+const DefaultCanvasFactory = DOMCanvasFactory;
+const DefaultCMapReaderFactory = DOMCMapReaderFactory;
+const DefaultFilterFactory = DOMFilterFactory;
+const DefaultStandardFontDataFactory = DOMStandardFontDataFactory;
+
+let createPDFNetworkStream;
+if (typeof PDFJSDev === "undefined") {
+  const streamsPromise = Promise.all([
+    import("./network.js"),
+    import("./fetch_stream.js"),
+  ]);
+
+  createPDFNetworkStream = async params => {
+    const [{ PDFNetworkStream }, { PDFFetchStream }] = await streamsPromise;
+
+    return isValidFetchUrl(params.url)
+      ? new PDFFetchStream(params)
+      : new PDFNetworkStream(params);
+  };
+} else if (PDFJSDev.test("GENERIC || CHROME")) {
+  const { PDFNetworkStream } = require("./network.js");
+  const { PDFFetchStream } = require("./fetch_stream.js");
+
+  createPDFNetworkStream = params => {
+    return isValidFetchUrl(params.url)
+      ? new PDFFetchStream(params)
+      : new PDFNetworkStream(params);
+  };
+}
 
 /**
  * @typedef { Int8Array | Uint8Array | Uint8ClampedArray |
