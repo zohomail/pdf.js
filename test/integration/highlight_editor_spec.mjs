@@ -19,7 +19,9 @@ import {
   createPromise,
   getEditorSelector,
   getFirstSerialized,
+  getRect,
   getSerialized,
+  getSpanRectFromText,
   kbBigMoveLeft,
   kbBigMoveUp,
   kbFocusNext,
@@ -28,6 +30,11 @@ import {
   kbUndo,
   loadAndWait,
   scrollIntoView,
+  setCaretAt,
+  switchToEditor,
+  waitAndClick,
+  waitForAnnotationModeChanged,
+  waitForSelectedEditor,
   waitForSerialized,
 } from "./test_utils.mjs";
 
@@ -43,31 +50,11 @@ const waitForPointerUp = page =>
     window.addEventListener("pointerup", resolve, { once: true });
   });
 
-const getXY = (page, selector) =>
-  page.evaluate(sel => {
-    const bbox = document.querySelector(sel).getBoundingClientRect();
-    return `${bbox.x}::${bbox.y}`;
-  }, selector);
+const switchToHighlight = switchToEditor.bind(null, "Highlight");
 
-const getSpanRectFromText = async (page, pageNumber, text) => {
-  await page.waitForSelector(
-    `.page[data-page-number="${pageNumber}"] > .textLayer .endOfContent`
-  );
-  return page.evaluate(
-    (number, content) => {
-      for (const el of document.querySelectorAll(
-        `.page[data-page-number="${number}"] > .textLayer > span`
-      )) {
-        if (el.textContent === content) {
-          const { x, y, width, height } = el.getBoundingClientRect();
-          return { x, y, width, height };
-        }
-      }
-      return null;
-    },
-    pageNumber,
-    text
-  );
+const getXY = async (page, selector) => {
+  const rect = await getRect(page, selector);
+  return `${rect.x}::${rect.y}`;
 };
 
 describe("Highlight Editor", () => {
@@ -85,8 +72,7 @@ describe("Highlight Editor", () => {
     it("must scroll and check that the draw layer is there", async () => {
       await Promise.all(
         pages.map(async ([browserName, page]) => {
-          await page.click("#editorHighlight");
-          await page.waitForSelector(".annotationEditorLayer.highlightEditing");
+          await switchToHighlight(page);
 
           const rect = await getSpanRectFromText(page, 1, "Abstract");
           const x = rect.x + rect.width / 2;
@@ -134,8 +120,7 @@ describe("Highlight Editor", () => {
     it("must scroll and check that the highlight is selected", async () => {
       await Promise.all(
         pages.map(async ([browserName, page]) => {
-          await page.click("#editorHighlight");
-          await page.waitForSelector(".annotationEditorLayer.highlightEditing");
+          await switchToHighlight(page);
 
           const rect = await getSpanRectFromText(page, 1, "Abstract");
           const x = rect.x + rect.width / 2;
@@ -185,8 +170,7 @@ describe("Highlight Editor", () => {
     it("must highlight with red color", async () => {
       await Promise.all(
         pages.map(async ([browserName, page]) => {
-          await page.click("#editorHighlight");
-          await page.waitForSelector(".annotationEditorLayer.highlightEditing");
+          await switchToHighlight(page);
 
           const rect = await getSpanRectFromText(page, 1, "Abstract");
           const x = rect.x + rect.width / 2;
@@ -231,8 +215,7 @@ describe("Highlight Editor", () => {
     it("must scroll and change the color without exceptions", async () => {
       await Promise.all(
         pages.map(async ([browserName, page]) => {
-          await page.click("#editorHighlight");
-          await page.waitForSelector(".annotationEditorLayer.highlightEditing");
+          await switchToHighlight(page);
 
           let rect = await getSpanRectFromText(page, 1, "Abstract");
           let x = rect.x + rect.width / 2;
@@ -320,8 +303,7 @@ describe("Highlight Editor", () => {
     it("must be correctly serialized", async () => {
       await Promise.all(
         pages.map(async ([browserName, page]) => {
-          await page.click("#editorHighlight");
-          await page.waitForSelector(".annotationEditorLayer.highlightEditing");
+          await switchToHighlight(page);
 
           const rect = await getSpanRectFromText(page, 1, "Abstract");
           const x = rect.x + rect.width / 2;
@@ -381,8 +363,7 @@ describe("Highlight Editor", () => {
     it("must check that we can use the keyboard to select a color", async () => {
       await Promise.all(
         pages.map(async ([browserName, page]) => {
-          await page.click("#editorHighlight");
-          await page.waitForSelector(".annotationEditorLayer.highlightEditing");
+          await switchToHighlight(page);
           const sel = getEditorSelector(0);
 
           const rect = await getSpanRectFromText(page, 1, "Abstract");
@@ -493,8 +474,7 @@ describe("Highlight Editor", () => {
     it("must check that a text highlight don't move when arrows are pressed", async () => {
       await Promise.all(
         pages.map(async ([browserName, page]) => {
-          await page.click("#editorHighlight");
-          await page.waitForSelector(".annotationEditorLayer.highlightEditing");
+          await switchToHighlight(page);
 
           const rect = await getSpanRectFromText(page, 1, "Abstract");
           const x = rect.x + rect.width / 2;
@@ -540,8 +520,7 @@ describe("Highlight Editor", () => {
     it("must check that the dropdown is hidden", async () => {
       await Promise.all(
         pages.map(async ([browserName, page]) => {
-          await page.click("#editorHighlight");
-          await page.waitForSelector(".annotationEditorLayer.highlightEditing");
+          await switchToHighlight(page);
           const sel = getEditorSelector(0);
 
           const rect = await getSpanRectFromText(page, 1, "Abstract");
@@ -582,8 +561,7 @@ describe("Highlight Editor", () => {
     it("must check that editor is unselected when the mouse is down on the text layer", async () => {
       await Promise.all(
         pages.map(async ([browserName, page]) => {
-          await page.click("#editorHighlight");
-          await page.waitForSelector(".annotationEditorLayer.highlightEditing");
+          await switchToHighlight(page);
           const sel = getEditorSelector(0);
 
           const rect = await getSpanRectFromText(page, 1, "Abstract");
@@ -626,15 +604,9 @@ describe("Highlight Editor", () => {
     it("must check that the thickness is correctly updated", async () => {
       await Promise.all(
         pages.map(async ([browserName, page]) => {
-          await page.click("#editorHighlight");
-          await page.waitForSelector(".annotationEditorLayer.highlightEditing");
+          await switchToHighlight(page);
 
-          const rect = await page.$eval(".annotationEditorLayer", el => {
-            // With Chrome something is wrong when serializing a DomRect,
-            // hence we extract the values and just return them.
-            const { x, y } = el.getBoundingClientRect();
-            return { x, y };
-          });
+          const rect = await getRect(page, ".annotationEditorLayer");
 
           for (let i = 0; i < 3; i++) {
             const x = rect.x + 120 + i * 120;
@@ -658,8 +630,8 @@ describe("Highlight Editor", () => {
 
           await selectAll(page);
 
-          const prevWidth = await page.evaluate(
-            sel => document.querySelector(sel).getBoundingClientRect().width,
+          const { width: prevWidth } = await getRect(
+            page,
             getEditorSelector(0)
           );
 
@@ -708,17 +680,13 @@ describe("Highlight Editor", () => {
     it("must check that some text has been highlighted", async () => {
       await Promise.all(
         pages.map(async ([browserName, page]) => {
-          await page.click("#editorHighlight");
-          await page.waitForSelector(".annotationEditorLayer.highlightEditing");
+          await switchToHighlight(page);
           const sel = getEditorSelector(0);
 
-          const spanRect = await page.evaluate(() => {
-            const span = document.querySelector(
-              `.page[data-page-number="1"] > .textLayer > span`
-            );
-            const { x, y, width, height } = span.getBoundingClientRect();
-            return { x, y, width, height };
-          });
+          const spanRect = await getRect(
+            page,
+            `.page[data-page-number="1"] > .textLayer > span`
+          );
           await page.keyboard.down("Shift");
           await page.mouse.click(
             spanRect.x + 1,
@@ -731,6 +699,8 @@ describe("Highlight Editor", () => {
           await page.keyboard.press("ArrowDown");
           await page.keyboard.press("ArrowDown");
           await page.keyboard.up("Shift");
+
+          await page.waitForSelector(sel);
 
           const [w, h] = await page.evaluate(s => {
             const {
@@ -774,15 +744,9 @@ describe("Highlight Editor", () => {
     it("must check that highlight is at the correct position", async () => {
       await Promise.all(
         pages.map(async ([browserName, page]) => {
-          await page.click("#editorHighlight");
-          await page.waitForSelector(".annotationEditorLayer.highlightEditing");
+          await switchToHighlight(page);
 
-          const rect = await page.$eval(".annotationEditorLayer", el => {
-            // With Chrome something is wrong when serializing a DomRect,
-            // hence we extract the values and just return them.
-            const { x, y } = el.getBoundingClientRect();
-            return { x, y };
-          });
+          const rect = await getRect(page, ".annotationEditorLayer");
 
           const clickHandle = await waitForPointerUp(page);
           await page.mouse.move(rect.x + 120, rect.y + 120);
@@ -801,8 +765,8 @@ describe("Highlight Editor", () => {
           );
           await selectAll(page);
 
-          const prevWidth = await page.evaluate(
-            sel => document.querySelector(sel).getBoundingClientRect().width,
+          const { width: prevWidth } = await getRect(
+            page,
             getEditorSelector(0)
           );
 
@@ -826,15 +790,8 @@ describe("Highlight Editor", () => {
             getEditorSelector(0)
           );
 
-          const rectDiv = await page.$eval(getEditorSelector(0), el => {
-            const { x, y, width, height } = el.getBoundingClientRect();
-            return { x, y, width, height };
-          });
-
-          const rectSVG = await page.$eval("svg.highlight.free", el => {
-            const { x, y, width, height } = el.getBoundingClientRect();
-            return { x, y, width, height };
-          });
+          const rectDiv = await getRect(page, getEditorSelector(0));
+          const rectSVG = await getRect(page, "svg.highlight.free");
 
           expect(Math.abs(rectDiv.x - rectSVG.x) <= 2)
             .withContext(`In ${browserName}`)
@@ -873,8 +830,7 @@ describe("Highlight Editor", () => {
     it("must check that it's possible to highlight a part of a link", async () => {
       await Promise.all(
         pages.map(async ([browserName, page]) => {
-          await page.click("#editorHighlight");
-          await page.waitForSelector(".annotationEditorLayer.highlightEditing");
+          await switchToHighlight(page);
 
           const rect = await getSpanRectFromText(
             page,
@@ -919,17 +875,10 @@ describe("Highlight Editor", () => {
     it("must check that it's possible to highlight a part of a form", async () => {
       await Promise.all(
         pages.map(async ([browserName, page]) => {
-          await page.click("#editorHighlight");
-          await page.waitForSelector(".annotationEditorLayer.highlightEditing");
+          await switchToHighlight(page);
 
-          const rect1 = await page.$eval("#pdfjs_internal_id_5R", el => {
-            const { x, y, width, height } = el.getBoundingClientRect();
-            return { x, y, width, height };
-          });
-          const rect2 = await page.$eval("#pdfjs_internal_id_16R", el => {
-            const { x, y, width, height } = el.getBoundingClientRect();
-            return { x, y, width, height };
-          });
+          const rect1 = await getRect(page, "#pdfjs_internal_id_5R");
+          const rect2 = await getRect(page, "#pdfjs_internal_id_16R");
 
           const x1 = rect1.x + rect1.width / 2;
           const y1 = rect1.y + rect1.height / 2;
@@ -964,20 +913,13 @@ describe("Highlight Editor", () => {
         "tracemonkey.pdf",
         `.page[data-page-number = "1"] .endOfContent`,
         null,
-        async page => {
-          await page.waitForFunction(async () => {
-            await window.PDFViewerApplication.initializedPromise;
-            return true;
-          });
-          await page.evaluate(() => {
+        {
+          eventBusSetup: eventBus => {
             window.editingEvents = [];
-            window.PDFViewerApplication.eventBus.on(
-              "annotationeditorstateschanged",
-              ({ details }) => {
-                window.editingEvents.push(details);
-              }
-            );
-          });
+            eventBus.on("annotationeditorstateschanged", ({ details }) => {
+              window.editingEvents.push(details);
+            });
+          },
         },
         { highlightEditorColors: "red=#AB0000" }
       );
@@ -1051,16 +993,12 @@ describe("Highlight Editor", () => {
         "tracemonkey.pdf",
         ".annotationEditorLayer",
         null,
-        async page => {
-          await page.evaluate(async () => {
-            await window.PDFViewerApplication.initializedPromise;
-            window.PDFViewerApplication.eventBus.on(
-              "annotationeditoruimanager",
-              ({ uiManager }) => {
-                window.uiManager = uiManager;
-              }
-            );
-          });
+        {
+          eventBusSetup: eventBus => {
+            eventBus.on("annotationeditoruimanager", ({ uiManager }) => {
+              window.uiManager = uiManager;
+            });
+          },
         },
         {
           highlightEditorColors: "red=#AB0000",
@@ -1075,10 +1013,7 @@ describe("Highlight Editor", () => {
           window.uiManager.reset();
         });
         // Disable editing mode.
-        await page.click("#editorHighlight");
-        await page.waitForSelector(
-          `.annotationEditorLayer:not(.highlightEditing)`
-        );
+        await switchToHighlight(page, /* disable */ true);
       }
     });
 
@@ -1089,8 +1024,7 @@ describe("Highlight Editor", () => {
     it("must check that the caret can move a highlighted text", async () => {
       await Promise.all(
         pages.map(async ([browserName, page]) => {
-          await page.click("#editorHighlight");
-          await page.waitForSelector(".annotationEditorLayer.highlightEditing");
+          await switchToHighlight(page);
 
           const rect = await getSpanRectFromText(page, 1, "Abstract");
           const x = rect.x + rect.width / 2;
@@ -1102,19 +1036,12 @@ describe("Highlight Editor", () => {
             `${getEditorSelector(0)}:not(.selectedEditor)`
           );
 
-          await page.evaluate(() => {
-            const text =
-              "Dynamic languages such as JavaScript are more difﬁcult to com-";
-            for (const el of document.querySelectorAll(
-              `.page[data-page-number="${1}"] > .textLayer > span`
-            )) {
-              if (el.textContent === text) {
-                window.getSelection().setPosition(el.firstChild, 1);
-                break;
-              }
-            }
-          });
-
+          await setCaretAt(
+            page,
+            1,
+            "Dynamic languages such as JavaScript are more difﬁcult to com-",
+            1
+          );
           await page.keyboard.press("ArrowUp");
           const [text, offset] = await page.evaluate(() => {
             const selection = window.getSelection();
@@ -1130,22 +1057,14 @@ describe("Highlight Editor", () => {
     it("must check that selection is correctly highlighted on arrow down key pressed", async () => {
       await Promise.all(
         pages.map(async ([browserName, page]) => {
-          await page.click("#editorHighlight");
-          await page.waitForSelector(".annotationEditorLayer.highlightEditing");
+          await switchToHighlight(page);
 
-          await page.evaluate(() => {
-            const text =
-              "Dynamic languages such as JavaScript are more difﬁcult to com-";
-            for (const el of document.querySelectorAll(
-              `.page[data-page-number="${1}"] > .textLayer > span`
-            )) {
-              if (el.textContent === text) {
-                window.getSelection().setPosition(el.firstChild, 15);
-                break;
-              }
-            }
-          });
-
+          await setCaretAt(
+            page,
+            1,
+            "Dynamic languages such as JavaScript are more difﬁcult to com-",
+            15
+          );
           await page.keyboard.down("Shift");
           await page.keyboard.press("ArrowDown");
           await page.keyboard.up("Shift");
@@ -1166,8 +1085,7 @@ describe("Highlight Editor", () => {
     it("must check that an highlight can be left with the keyboard", async () => {
       await Promise.all(
         pages.map(async ([browserName, page]) => {
-          await page.click("#editorHighlight");
-          await page.waitForSelector(".annotationEditorLayer.highlightEditing");
+          await switchToHighlight(page);
 
           if (browserName === "chrome") {
             // Unfortunately, we can't test this on Chrome because we can't set
@@ -1254,8 +1172,7 @@ describe("Highlight Editor", () => {
     it("must check that the highlight has been deleted", async () => {
       await Promise.all(
         pages.map(async ([browserName, page]) => {
-          await page.click("#editorHighlight");
-          await page.waitForSelector(".annotationEditorLayer.highlightEditing");
+          await switchToHighlight(page);
 
           const rect = await getSpanRectFromText(page, 1, "Abstract");
           const x = rect.x + rect.width / 2;
@@ -1289,8 +1206,7 @@ describe("Highlight Editor", () => {
     it("must check the thickness input state", async () => {
       await Promise.all(
         pages.map(async ([browserName, page]) => {
-          await page.click("#editorHighlight");
-          await page.waitForSelector(".annotationEditorLayer.highlightEditing");
+          await switchToHighlight(page);
 
           let rect = await getSpanRectFromText(page, 1, "Abstract");
           await page.mouse.click(
@@ -1301,10 +1217,7 @@ describe("Highlight Editor", () => {
 
           await page.waitForSelector(getEditorSelector(0));
 
-          rect = await page.$eval(".annotationEditorLayer", el => {
-            const { x, y } = el.getBoundingClientRect();
-            return { x, y };
-          });
+          rect = await getRect(page, ".annotationEditorLayer");
 
           const clickHandle = await waitForPointerUp(page);
           await page.mouse.move(rect.x + 5, rect.y + 5);
@@ -1322,13 +1235,8 @@ describe("Highlight Editor", () => {
           await page.waitForSelector(getEditorSelector(0));
           await page.waitForSelector("#editorFreeHighlightThickness[disabled]");
 
-          await page.click("#editorHighlight");
-          await page.waitForSelector(
-            ".annotationEditorLayer:not(.highlightEditing)"
-          );
-
-          await page.click("#editorHighlight");
-          await page.waitForSelector(".annotationEditorLayer.highlightEditing");
+          await switchToHighlight(page, /* disable */ true);
+          await switchToHighlight(page);
 
           await page.waitForSelector(
             "#editorFreeHighlightThickness:not([disabled])"
@@ -1352,8 +1260,7 @@ describe("Highlight Editor", () => {
     it("must check that the quadpoints for an highlight are almost correct", async () => {
       await Promise.all(
         pages.map(async ([browserName, page]) => {
-          await page.click("#editorHighlight");
-          await page.waitForSelector(".annotationEditorLayer.highlightEditing");
+          await switchToHighlight(page);
 
           const rect = await getSpanRectFromText(page, 1, "Languages");
           await page.mouse.click(
@@ -1374,6 +1281,41 @@ describe("Highlight Editor", () => {
     });
   });
 
+  describe("Quadpoints must be correct when they're in a translated page", () => {
+    let pages;
+
+    beforeAll(async () => {
+      pages = await loadAndWait("issue18360.pdf", ".annotationEditorLayer");
+    });
+
+    afterAll(async () => {
+      await closePages(pages);
+    });
+
+    it("must check that the quadpoints for an highlight are almost correct", async () => {
+      await Promise.all(
+        pages.map(async ([browserName, page]) => {
+          await switchToHighlight(page);
+
+          const rect = await getSpanRectFromText(page, 1, "Hello World");
+          await page.mouse.click(
+            rect.x + rect.width / 4,
+            rect.y + rect.height / 2,
+            { count: 2, delay: 100 }
+          );
+
+          await page.waitForSelector(getEditorSelector(0));
+          await waitForSerialized(page, 1);
+          const quadPoints = await getFirstSerialized(page, e => e.quadPoints);
+          const expected = [148, 624, 176, 624, 148, 637, 176, 637];
+          expect(quadPoints.every((x, i) => Math.abs(x - expected[i]) <= 5))
+            .withContext(`In ${browserName} (got ${quadPoints})`)
+            .toBeTrue();
+        })
+      );
+    });
+  });
+
   describe("Editor must be unselected when the color picker is Escaped", () => {
     let pages;
 
@@ -1388,8 +1330,7 @@ describe("Highlight Editor", () => {
     it("must check that the highlight editor is unselected", async () => {
       await Promise.all(
         pages.map(async ([browserName, page]) => {
-          await page.click("#editorHighlight");
-          await page.waitForSelector(".annotationEditorLayer.highlightEditing");
+          await switchToHighlight(page);
 
           const rect = await getSpanRectFromText(page, 1, "Abstract");
           const x = rect.x + rect.width / 2;
@@ -1420,13 +1361,9 @@ describe("Highlight Editor", () => {
     it("must check the editor coordinates", async () => {
       await Promise.all(
         pages.map(async ([browserName, page]) => {
-          await page.click("#editorHighlight");
-          await page.waitForSelector(".annotationEditorLayer.highlightEditing");
+          await switchToHighlight(page);
 
-          const rect = await page.$eval(".annotationEditorLayer", el => {
-            const { x, y } = el.getBoundingClientRect();
-            return { x, y };
-          });
+          const rect = await getRect(page, ".annotationEditorLayer");
 
           const clickHandle = await waitForPointerUp(page);
           await page.mouse.move(rect.x + 1, rect.y + 50);
@@ -1436,10 +1373,8 @@ describe("Highlight Editor", () => {
           await awaitPromise(clickHandle);
 
           await page.waitForSelector(getEditorSelector(0));
-          const editorX = await page.$eval(
-            getEditorSelector(0),
-            el => el.getBoundingClientRect().x
-          );
+
+          const { x: editorX } = await getRect(page, getEditorSelector(0));
 
           expect(editorX < rect.x)
             .withContext(`In ${browserName}`)
@@ -1463,13 +1398,9 @@ describe("Highlight Editor", () => {
     it("must check that the highlights are correctly hidden/shown", async () => {
       await Promise.all(
         pages.map(async ([browserName, page]) => {
-          await page.click("#editorHighlight");
-          await page.waitForSelector(".annotationEditorLayer.highlightEditing");
+          await switchToHighlight(page);
 
-          let rect = await page.$eval(".annotationEditorLayer", el => {
-            const { x, y } = el.getBoundingClientRect();
-            return { x, y };
-          });
+          let rect = await getRect(page, ".annotationEditorLayer");
           const clickHandle = await waitForPointerUp(page);
           await page.mouse.move(rect.x + 20, rect.y + 20);
           await page.mouse.down();
@@ -1574,8 +1505,7 @@ describe("Highlight Editor", () => {
     it("must check the focus order", async () => {
       await Promise.all(
         pages.map(async ([browserName, page]) => {
-          await page.click("#editorHighlight");
-          await page.waitForSelector(".annotationEditorLayer.highlightEditing");
+          await switchToHighlight(page);
 
           let rect = await getSpanRectFromText(page, 1, "Abstract");
           let x = rect.x + rect.width / 2;
@@ -1616,8 +1546,7 @@ describe("Highlight Editor", () => {
     it("must check that a highlight can be undone", async () => {
       await Promise.all(
         pages.map(async ([browserName, page]) => {
-          await page.click("#editorHighlight");
-          await page.waitForSelector(".annotationEditorLayer.highlightEditing");
+          await switchToHighlight(page);
 
           const rect = await getSpanRectFromText(page, 1, "Abstract");
           const x = rect.x + rect.width / 2;
@@ -1661,8 +1590,7 @@ describe("Highlight Editor", () => {
     it("must check that a highlight can be undone", async () => {
       await Promise.all(
         pages.map(async ([browserName, page]) => {
-          await page.click("#editorHighlight");
-          await page.waitForSelector(".annotationEditorLayer.highlightEditing");
+          await switchToHighlight(page);
 
           const rect = await getSpanRectFromText(page, 1, "Abstract");
           const x = rect.x + rect.width / 2;
@@ -1722,8 +1650,7 @@ describe("Highlight Editor", () => {
     it("must check that a highlight can be undone", async () => {
       await Promise.all(
         pages.map(async ([browserName, page]) => {
-          await page.click("#editorHighlight");
-          await page.waitForSelector(".annotationEditorLayer.highlightEditing");
+          await switchToHighlight(page);
 
           const rect = await getSpanRectFromText(page, 1, "Abstract");
           const x = rect.x + rect.width / 2;
@@ -1750,6 +1677,483 @@ describe("Highlight Editor", () => {
           await page.waitForSelector(
             `.page[data-page-number = "1"] svg.highlight[fill = "#FFFF00"]`
           );
+        })
+      );
+    });
+  });
+
+  describe("Use a toolbar overlapping an other highlight", () => {
+    let pages;
+
+    beforeAll(async () => {
+      pages = await loadAndWait(
+        "tracemonkey.pdf",
+        ".annotationEditorLayer",
+        null,
+        null,
+        {
+          highlightEditorColors:
+            "yellow=#FFFF00,green=#00FF00,blue=#0000FF,pink=#FF00FF,red=#FF0000",
+        }
+      );
+    });
+
+    afterAll(async () => {
+      await closePages(pages);
+    });
+
+    it("must check that the toolbar is usable", async () => {
+      await Promise.all(
+        pages.map(async ([browserName, page]) => {
+          await switchToHighlight(page);
+
+          await setCaretAt(
+            page,
+            1,
+            "Dynamic languages such as JavaScript are more difﬁcult to com-",
+            0
+          );
+          await page.keyboard.down("Shift");
+          for (let i = 0; i < 3; i++) {
+            await page.keyboard.press("ArrowDown");
+          }
+          await page.keyboard.up("Shift");
+
+          const editorSelector = getEditorSelector(0);
+          await page.waitForSelector(editorSelector);
+
+          await setCaretAt(
+            page,
+            1,
+            "handle all possible type combinations at runtime. We present an al-",
+            0
+          );
+          await page.keyboard.down("Shift");
+          for (let i = 0; i < 3; i++) {
+            await page.keyboard.press("ArrowDown");
+          }
+          await page.keyboard.up("Shift");
+          await page.waitForSelector(getEditorSelector(1));
+
+          const rect = await getRect(page, editorSelector);
+          const x = rect.x + rect.width / 2;
+          const y = rect.y + rect.height / 2;
+          await page.mouse.click(x, y);
+
+          await page.waitForSelector(
+            `${editorSelector} .editToolbar button.colorPicker`
+          );
+
+          await page.click(`${editorSelector} .editToolbar button.colorPicker`);
+          await page.waitForSelector(
+            `${editorSelector} .editToolbar button[title = "Green"]`
+          );
+          await page.click(
+            `${editorSelector} .editToolbar button[title = "Green"]`
+          );
+          await page.waitForSelector(
+            `.page[data-page-number = "1"] svg.highlight[fill = "#00FF00"]`
+          );
+        })
+      );
+    });
+  });
+
+  describe("Draw a free highlight with the pointer hovering an existing highlight", () => {
+    let pages;
+
+    beforeAll(async () => {
+      pages = await loadAndWait("tracemonkey.pdf", ".annotationEditorLayer");
+    });
+
+    afterAll(async () => {
+      await closePages(pages);
+    });
+
+    it("must check that an existing highlight is ignored on hovering", async () => {
+      await Promise.all(
+        pages.map(async ([browserName, page]) => {
+          await switchToHighlight(page);
+
+          const rect = await getSpanRectFromText(page, 1, "Abstract");
+          const editorSelector = getEditorSelector(0);
+          const x = rect.x + rect.width / 2;
+          let y = rect.y + rect.height / 2;
+          await page.mouse.click(x, y, { count: 2, delay: 100 });
+          await page.waitForSelector(editorSelector);
+          await waitForSerialized(page, 1);
+          await page.keyboard.press("Escape");
+          await page.waitForSelector(`${editorSelector}:not(.selectedEditor)`);
+
+          const clickHandle = await waitForPointerUp(page);
+          y = rect.y - rect.height;
+          await page.mouse.move(x, y);
+
+          const counterHandle = await page.evaluateHandle(sel => {
+            const el = document.querySelector(sel);
+            const counter = { count: 0 };
+            el.addEventListener(
+              "pointerover",
+              () => {
+                counter.count += 1;
+              },
+              { capture: true }
+            );
+            return counter;
+          }, editorSelector);
+
+          await page.mouse.down();
+          await page.waitForSelector(
+            `.page[data-page-number = "1"] .annotationEditorLayer.drawing`
+          );
+          for (
+            const endY = rect.y + 2 * rect.height;
+            y <= endY;
+            y += rect.height / 10
+          ) {
+            await page.mouse.move(x, Math.round(y));
+          }
+          await page.mouse.up();
+          await awaitPromise(clickHandle);
+          await page.waitForSelector(
+            `.page[data-page-number = "1"] .annotationEditorLayer:not(.drawing)`
+          );
+
+          const { count } = await counterHandle.jsonValue();
+          expect(count).withContext(`In ${browserName}`).toEqual(0);
+        })
+      );
+    });
+  });
+
+  describe("Select text with the pointer hovering an existing highlight", () => {
+    let pages;
+
+    beforeAll(async () => {
+      pages = await loadAndWait("tracemonkey.pdf", ".annotationEditorLayer");
+    });
+
+    afterAll(async () => {
+      await closePages(pages);
+    });
+
+    it("must check that an existing highlight is ignored on hovering", async () => {
+      await Promise.all(
+        pages.map(async ([browserName, page]) => {
+          await switchToHighlight(page);
+
+          const rect = await getSpanRectFromText(
+            page,
+            1,
+            "ternative compilation technique for dynamically-typed languages"
+          );
+          const editorSelector = getEditorSelector(0);
+          const x = Math.round(rect.x + rect.width / 2);
+          let y = Math.round(rect.y + rect.height / 2);
+          await page.mouse.click(x, y, { count: 3, delay: 100 });
+          await page.waitForSelector(editorSelector);
+          await waitForSerialized(page, 1);
+          await page.keyboard.press("Escape");
+          await page.waitForSelector(`${editorSelector}:not(.selectedEditor)`);
+
+          const clickHandle = await waitForPointerUp(page);
+          y = rect.y - 3 * rect.height;
+          await page.mouse.move(x, y);
+
+          const counterHandle = await page.evaluateHandle(sel => {
+            const el = document.querySelector(sel);
+            const counter = { count: 0 };
+            el.addEventListener(
+              "pointerover",
+              () => {
+                counter.count += 1;
+              },
+              { capture: true }
+            );
+            return counter;
+          }, editorSelector);
+
+          await page.mouse.down();
+          await page.waitForSelector(
+            `.page[data-page-number = "1"] .textLayer.selecting`
+          );
+          for (
+            const endY = rect.y + 3 * rect.height;
+            y <= endY;
+            y += rect.height / 10
+          ) {
+            await page.mouse.move(x, Math.round(y));
+          }
+          await page.mouse.up();
+          await awaitPromise(clickHandle);
+          await page.waitForSelector(
+            `.page[data-page-number = "1"] .textLayer:not(.selecting)`
+          );
+
+          const { count } = await counterHandle.jsonValue();
+          expect(count).withContext(`In ${browserName}`).toEqual(0);
+        })
+      );
+    });
+  });
+
+  describe("Highlight with the floating button in a pdf containing a FreeText", () => {
+    let pages;
+
+    beforeAll(async () => {
+      pages = await loadAndWait(
+        "file_pdfjs_test.pdf",
+        ".annotationEditorLayer",
+        null,
+        null,
+        { highlightEditorColors: "red=#AB0000" }
+      );
+    });
+
+    afterAll(async () => {
+      await closePages(pages);
+    });
+
+    it("must check that the highlight is created", async () => {
+      await Promise.all(
+        pages.map(async ([browserName, page]) => {
+          const rect = await getSpanRectFromText(page, 1, "In production");
+          const x = rect.x + rect.width / 2;
+          const y = rect.y + rect.height / 2;
+          await page.mouse.click(x, y, { count: 3, delay: 100 });
+
+          await page.waitForSelector(".textLayer .highlightButton");
+          await page.click(".textLayer .highlightButton");
+
+          await page.waitForSelector(getEditorSelector(0));
+          const usedColor = await page.evaluate(() => {
+            const highlight = document.querySelector(
+              `.page[data-page-number = "1"] .canvasWrapper > svg.highlight`
+            );
+            return highlight.getAttribute("fill");
+          });
+
+          expect(usedColor).withContext(`In ${browserName}`).toEqual("#AB0000");
+        })
+      );
+    });
+  });
+
+  describe("Highlight (edit existing in double clicking on it)", () => {
+    let pages;
+
+    beforeAll(async () => {
+      pages = await loadAndWait(
+        "highlights.pdf",
+        ".annotationEditorLayer",
+        null,
+        null,
+        {
+          highlightEditorColors:
+            "yellow=#FFFF00,green=#00FF00,blue=#0000FF,pink=#FF00FF,red=#FF0102",
+        }
+      );
+    });
+
+    afterAll(async () => {
+      await closePages(pages);
+    });
+
+    it("must change the color of an highlight", async () => {
+      await Promise.all(
+        pages.map(async ([browserName, page]) => {
+          const modeChangedHandle = await waitForAnnotationModeChanged(page);
+          await waitAndClick(page, "[data-annotation-id='687R']", { count: 2 });
+          await awaitPromise(modeChangedHandle);
+          await page.waitForSelector("#highlightParamsToolbarContainer");
+
+          const editorSelector = getEditorSelector(5);
+          await page.waitForSelector(editorSelector);
+
+          await waitAndClick(
+            page,
+            `${editorSelector} .editToolbar button.colorPicker`
+          );
+          await waitAndClick(
+            page,
+            `${editorSelector} .editToolbar button[title = "Red"]`
+          );
+          await page.waitForSelector(
+            `.page[data-page-number = "1"] svg.highlight[fill = "#FF0102"]`
+          );
+        })
+      );
+    });
+  });
+
+  describe("Highlight (delete an existing annotation)", () => {
+    let pages;
+
+    beforeAll(async () => {
+      pages = await loadAndWait(
+        "highlight_popup.pdf",
+        ".annotationEditorLayer"
+      );
+    });
+
+    afterAll(async () => {
+      await closePages(pages);
+    });
+
+    it("must delete an existing annotation and its popup", async () => {
+      await Promise.all(
+        pages.map(async ([browserName, page]) => {
+          const modeChangedHandle = await waitForAnnotationModeChanged(page);
+          await waitAndClick(page, "[data-annotation-id='24R']", { count: 2 });
+          await awaitPromise(modeChangedHandle);
+          await page.waitForSelector("#highlightParamsToolbarContainer");
+
+          const editorSelector = getEditorSelector(0);
+          await page.waitForSelector(editorSelector);
+          await page.waitForSelector(`${editorSelector} button.delete`);
+          await page.click(`${editorSelector} button.delete`);
+          await waitForSerialized(page, 1);
+
+          const serialized = await getSerialized(page);
+          expect(serialized)
+            .withContext(`In ${browserName}`)
+            .toEqual([
+              {
+                pageIndex: 0,
+                id: "24R",
+                deleted: true,
+                popupRef: "25R",
+              },
+            ]);
+        })
+      );
+    });
+  });
+
+  describe("Free Highlight (edit existing in double clicking on it)", () => {
+    let pages;
+
+    beforeAll(async () => {
+      pages = await loadAndWait(
+        "highlights.pdf",
+        ".annotationEditorLayer",
+        null,
+        null,
+        {
+          highlightEditorColors:
+            "yellow=#FFFF00,green=#00FF00,blue=#0000FF,pink=#FF00FF,red=#FF0102",
+        }
+      );
+    });
+
+    afterAll(async () => {
+      await closePages(pages);
+    });
+
+    it("must change the color of a free highlight", async () => {
+      await Promise.all(
+        pages.map(async ([browserName, page]) => {
+          const modeChangedHandle = await waitForAnnotationModeChanged(page);
+          await page.click("[data-annotation-id='693R']", { count: 2 });
+          await awaitPromise(modeChangedHandle);
+          await page.waitForSelector("#highlightParamsToolbarContainer");
+
+          const editorSelector = getEditorSelector(6);
+          await page.waitForSelector(editorSelector);
+          await page.focus(editorSelector);
+          await waitForSelectedEditor(page, editorSelector);
+
+          await waitAndClick(
+            page,
+            `${editorSelector} .editToolbar button.colorPicker`
+          );
+          await waitAndClick(
+            page,
+            `${editorSelector} .editToolbar button[title = "Red"]`
+          );
+          await page.waitForSelector(
+            `.page[data-page-number = "1"] svg.highlight[fill = "#FF0102"]`
+          );
+        })
+      );
+    });
+  });
+
+  describe("Highlight editor mustn't throw when disabled", () => {
+    let pages;
+
+    beforeAll(async () => {
+      pages = await loadAndWait(
+        "annotation-highlight.pdf",
+        ".annotationEditorLayer"
+      );
+    });
+
+    afterAll(async () => {
+      await closePages(pages);
+    });
+
+    it("must enable & disable highlight mode successfully", async () => {
+      await Promise.all(
+        pages.map(async ([browserName, page]) => {
+          const modeChangedHandle = await waitForAnnotationModeChanged(page);
+          await switchToHighlight(page);
+          await awaitPromise(modeChangedHandle);
+
+          await page.waitForSelector("#highlightParamsToolbarContainer", {
+            visible: true,
+          });
+          await switchToHighlight(page, /* disable */ true);
+          await page.waitForSelector("#highlightParamsToolbarContainer", {
+            visible: false,
+          });
+        })
+      );
+    });
+  });
+
+  describe("Free Highlight with an image in the struct tree", () => {
+    let pages;
+
+    beforeAll(async () => {
+      pages = await loadAndWait(
+        "bug1708040.pdf",
+        ".annotationEditorLayer",
+        null,
+        null,
+        { highlightEditorColors: "red=#AB0000" }
+      );
+    });
+
+    afterAll(async () => {
+      await closePages(pages);
+    });
+
+    it("must check that it's possible to draw on an image in a struct tree", async () => {
+      await Promise.all(
+        pages.map(async ([browserName, page]) => {
+          await switchToHighlight(page);
+
+          const rect = await getRect(page, `.textLayer span[role="img"]`);
+
+          const x = rect.x + rect.width / 2;
+          const y = rect.y + rect.height / 2;
+          const clickHandle = await waitForPointerUp(page);
+          await page.mouse.move(x, y);
+          await page.mouse.down();
+          await page.mouse.move(rect.x - 1, rect.y - 1);
+          await page.mouse.up();
+          await awaitPromise(clickHandle);
+
+          await page.waitForSelector(getEditorSelector(0));
+          const usedColor = await page.evaluate(() => {
+            const highlight = document.querySelector(
+              `.page[data-page-number = "1"] .canvasWrapper > svg.highlight`
+            );
+            return highlight.getAttribute("fill");
+          });
+
+          expect(usedColor).withContext(`In ${browserName}`).toEqual("#AB0000");
         })
       );
     });
