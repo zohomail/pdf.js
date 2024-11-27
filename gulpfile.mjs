@@ -11,6 +11,9 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * This file is modified in order to generate the minfied version of
+ * pdf_viewer.js file in the pdfjs-dist/web.
  */
 
 import {
@@ -80,7 +83,7 @@ const config = JSON.parse(fs.readFileSync(CONFIG_FILE).toString());
 
 const ENV_TARGETS = [
   "last 2 versions",
-  "Chrome >= 103",
+  "Chrome >= 70",
   "Firefox ESR",
   "Safari >= 16.4",
   "Node >= 20",
@@ -825,14 +828,14 @@ function createBuildNumber(done) {
     "git log --format=oneline " + config.baseVersion + "..",
     function (err, stdout, stderr) {
       let buildNumber = 0;
-      if (!err) {
-        // Build number is the number of commits since base version
-        buildNumber = stdout ? stdout.match(/\n/g).length : 0;
-      } else {
-        console.log(
-          "This is not a Git repository; using default build number."
-        );
-      }
+      // if (!err) {
+      //   // Build number is the number of commits since base version
+      //   buildNumber = stdout ? stdout.match(/\n/g).length : 0;
+      // } else {
+      //   console.log(
+      //     "This is not a Git repository; using default build number."
+      //   );
+      // }
 
       console.log("Extension build number: " + buildNumber);
 
@@ -1068,7 +1071,7 @@ function buildGeneric(defines, dir) {
       .pipe(gulp.dest(dir + "web")),
     createCMapBundle().pipe(gulp.dest(dir + "web/cmaps")),
     createStandardFontBundle().pipe(gulp.dest(dir + "web/standard_fonts")),
-
+    // createComponentsBundle(defines).pipe(gulp.dest(dir + "components")),
     preprocessHTML("web/viewer.html", defines).pipe(gulp.dest(dir + "web")),
     preprocessCSS("web/viewer.css", defines)
       .pipe(
@@ -1241,6 +1244,7 @@ function buildMinified(defines, dir) {
     createImageDecodersBundle({ ...defines, IMAGE_DECODERS: true }).pipe(
       gulp.dest(dir + "image_decoders")
     ),
+    // createComponentsBundle(defines).pipe(gulp.dest(dir + "components")),
   ]);
 }
 
@@ -1499,7 +1503,6 @@ gulp.task(
         createStandardFontBundle().pipe(
           gulp.dest(CHROME_BUILD_CONTENT_DIR + "web/standard_fonts")
         ),
-
         preprocessHTML("web/viewer.html", defines).pipe(
           gulp.dest(CHROME_BUILD_CONTENT_DIR + "web")
         ),
@@ -2232,11 +2235,11 @@ function packageJson() {
   const VERSION = getVersionJSON().version;
 
   const DIST_NAME = "pdfjs-dist";
-  const DIST_DESCRIPTION = "Generic build of Mozilla's PDF.js library.";
-  const DIST_KEYWORDS = ["Mozilla", "pdf", "pdf.js"];
+  const DIST_DESCRIPTION = "Generic build of zohomail's PDF.js library.";
+  const DIST_KEYWORDS = ["zohomail", "pdf", "pdf.js"];
   const DIST_HOMEPAGE = "https://mozilla.github.io/pdf.js/";
-  const DIST_BUGS_URL = "https://github.com/mozilla/pdf.js/issues";
-  const DIST_GIT_URL = "https://github.com/mozilla/pdf.js.git";
+  const DIST_BUGS_URL = "https://github.com/zohomail/pdf.js/issues";
+  const DIST_GIT_URL = "https://github.com/zohomail/pdf.js.git";
   const DIST_LICENSE = "Apache-2.0";
 
   const npmManifest = {
@@ -2383,6 +2386,11 @@ gulp.task(
           .src(TYPES_DIR + "**/*", { base: TYPES_DIR, encoding: false })
           .pipe(gulp.dest(DIST_DIR + "types/")),
       ]);
+    },
+    function copyDistToOutside() {
+      return gulp
+        .src(DIST_DIR + "/**/*", { base: DIST_DIR })
+        .pipe(gulp.dest("pdfjs-dist"));
     }
   )
 );

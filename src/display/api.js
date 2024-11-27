@@ -52,12 +52,6 @@ import {
   StatTimer,
 } from "./display_utils.js";
 import { FontFaceObject, FontLoader } from "./font_loader.js";
-import {
-  NodeCanvasFactory,
-  NodeCMapReaderFactory,
-  NodeFilterFactory,
-  NodeStandardFontDataFactory,
-} from "display-node_utils";
 import { CanvasGraphics } from "./canvas.js";
 import { DOMCanvasFactory } from "./canvas_factory.js";
 import { DOMCMapReaderFactory } from "display-cmap_reader_factory";
@@ -70,7 +64,6 @@ import { OptionalContentConfig } from "./optional_content_config.js";
 import { PDFDataTransportStream } from "./transport_stream.js";
 import { PDFFetchStream } from "display-fetch_stream";
 import { PDFNetworkStream } from "display-network";
-import { PDFNodeStream } from "display-node_stream";
 import { TextLayer } from "./text_layer.js";
 import { XfaText } from "./xfa_text.js";
 
@@ -78,22 +71,10 @@ const DEFAULT_RANGE_CHUNK_SIZE = 65536; // 2^16 = 65536
 const RENDERING_CANCELLED_TIMEOUT = 100; // ms
 const DELAYED_CLEANUP_TIMEOUT = 5000; // ms
 
-const DefaultCanvasFactory =
-  typeof PDFJSDev !== "undefined" && PDFJSDev.test("GENERIC") && isNodeJS
-    ? NodeCanvasFactory
-    : DOMCanvasFactory;
-const DefaultCMapReaderFactory =
-  typeof PDFJSDev !== "undefined" && PDFJSDev.test("GENERIC") && isNodeJS
-    ? NodeCMapReaderFactory
-    : DOMCMapReaderFactory;
-const DefaultFilterFactory =
-  typeof PDFJSDev !== "undefined" && PDFJSDev.test("GENERIC") && isNodeJS
-    ? NodeFilterFactory
-    : DOMFilterFactory;
-const DefaultStandardFontDataFactory =
-  typeof PDFJSDev !== "undefined" && PDFJSDev.test("GENERIC") && isNodeJS
-    ? NodeStandardFontDataFactory
-    : DOMStandardFontDataFactory;
+const DefaultCanvasFactory = DOMCanvasFactory;
+const DefaultCMapReaderFactory = DOMCMapReaderFactory;
+const DefaultFilterFactory = DOMFilterFactory;
+const DefaultStandardFontDataFactory = DOMStandardFontDataFactory;
 
 /**
  * @typedef { Int8Array | Uint8Array | Uint8ClampedArray |
@@ -459,31 +440,9 @@ function getDocument(src = {}) {
           throw new Error("getDocument - no `url` parameter provided.");
         }
         let NetworkStream;
-
-        if (
-          typeof PDFJSDev !== "undefined" &&
-          PDFJSDev.test("GENERIC") &&
-          isNodeJS
-        ) {
-          if (isValidFetchUrl(url)) {
-            if (
-              typeof fetch === "undefined" ||
-              typeof Response === "undefined" ||
-              !("body" in Response.prototype)
-            ) {
-              throw new Error(
-                "getDocument - the Fetch API was disabled in Node.js, see `--no-experimental-fetch`."
-              );
-            }
-            NetworkStream = PDFFetchStream;
-          } else {
-            NetworkStream = PDFNodeStream;
-          }
-        } else {
           NetworkStream = isValidFetchUrl(url)
             ? PDFFetchStream
             : PDFNetworkStream;
-        }
 
         networkStream = new NetworkStream({
           url,
