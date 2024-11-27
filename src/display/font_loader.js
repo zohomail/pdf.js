@@ -15,11 +15,11 @@
 
 import {
   assert,
-  bytesToString,
   FontRenderOps,
   isNodeJS,
   shadow,
   string32,
+  toBase64Util,
   unreachable,
   warn,
 } from "../shared/util.js";
@@ -360,17 +360,13 @@ class FontLoader {
 }
 
 class FontFaceObject {
-  constructor(
-    translatedData,
-    { disableFontFace = false, ignoreErrors = false, inspectFont = null }
-  ) {
+  constructor(translatedData, { disableFontFace = false, inspectFont = null }) {
     this.compiledGlyphs = Object.create(null);
     // importing translated data
     for (const i in translatedData) {
       this[i] = translatedData[i];
     }
     this.disableFontFace = disableFontFace === true;
-    this.ignoreErrors = ignoreErrors === true;
     this._inspectFont = inspectFont;
   }
 
@@ -403,9 +399,8 @@ class FontFaceObject {
     if (!this.data || this.disableFontFace) {
       return null;
     }
-    const data = bytesToString(this.data);
     // Add the @font-face rule to the document.
-    const url = `url(data:${this.mimetype};base64,${btoa(data)});`;
+    const url = `url(data:${this.mimetype};base64,${toBase64Util(this.data)});`;
     let rule;
     if (!this.cssFontInfo) {
       rule = `@font-face {font-family:"${this.loadedName}";src:${url}}`;
@@ -430,9 +425,6 @@ class FontFaceObject {
     try {
       cmds = objs.get(this.loadedName + "_path_" + character);
     } catch (ex) {
-      if (!this.ignoreErrors) {
-        throw ex;
-      }
       warn(`getPathGenerator - ignoring character: "${ex}".`);
     }
 
@@ -506,6 +498,9 @@ class FontFaceObject {
           break;
       }
     }
+    // From https://learn.microsoft.com/en-us/typography/opentype/spec/cff2#paths
+    // All contours must be closed with a lineto operation.
+    commands.push(ctx => ctx.closePath());
 
     return (this.compiledGlyphs[character] = function glyphDrawer(ctx, size) {
       commands[0](ctx);
