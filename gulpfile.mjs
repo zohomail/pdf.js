@@ -2234,8 +2234,9 @@ gulp.task(
 function packageJson() {
   const VERSION = getVersionJSON().version;
 
-  const DIST_NAME = "pdfjs-dist";
-  const DIST_DESCRIPTION = "Generic build of zohomail's PDF.js library.";
+  const DIST_NAME = "@zmc/pdfjs-dist";
+  const DIST_DESCRIPTION =
+    "Enhanced version with additioanl exports from generic build of Mozilla's PDF.js library.";
   const DIST_KEYWORDS = ["zohomail", "pdf", "pdf.js"];
   const DIST_HOMEPAGE = "https://mozilla.github.io/pdf.js/";
   const DIST_BUGS_URL = "https://github.com/zohomail/pdf.js/issues";
