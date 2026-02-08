@@ -233,6 +233,9 @@ const RENDERING_CANCELLED_TIMEOUT = 100; // ms
  *    The default value is {DOMFilterFactory}.
  * @property {boolean} [enableHWA] - Enables hardware acceleration for
  *   rendering. The default value is `false`.
+ * @property {Object} [pagesMapper] - The pages mapper that will be used to map
+ *   page ids and page numbers. It's used when the page order is changed or some
+ *   pages are removed, cloned, etc.
  */
 
 /**
@@ -342,6 +345,7 @@ function getDocument(src = {}) {
       : DOMFilterFactory);
   const enableHWA = src.enableHWA === true;
   const useWasm = src.useWasm !== false;
+  const pagesMapper = src.pagesMapper || new PagesMapper();
 
   // Parameters whose default values depend on other parameters.
   const length = rangeTransport ? rangeTransport.length : (src.length ?? NaN);
@@ -511,7 +515,8 @@ function getDocument(src = {}) {
           task,
           networkStream,
           transportParams,
-          transportFactory
+          transportFactory,
+          pagesMapper
         );
         task._transport = transport;
         messageHandler.send("Ready", null);
@@ -759,6 +764,13 @@ class PDFDocumentProxy {
         value: pageIndex => this._transport.getAnnotArray(pageIndex),
       });
     }
+  }
+
+  /**
+   * @type {PagesMapper} The pages mapper instance.
+   */
+  get pagesMapper() {
+    return this._transport.pagesMapper;
   }
 
   /**
@@ -1324,9 +1336,9 @@ class PDFDocumentProxy {
 class PDFPageProxy {
   #pendingCleanup = false;
 
-  #pagesMapper = PagesMapper.instance;
+  #pagesMapper = null;
 
-  constructor(pageIndex, pageInfo, transport, pdfBug = false) {
+  constructor(pageIndex, pageInfo, transport, pagesMapper, pdfBug = false) {
     this._pageIndex = pageIndex;
     this._pageInfo = pageInfo;
     this._transport = transport;
@@ -1339,6 +1351,7 @@ class PDFPageProxy {
     this._intentStates = new Map();
     this.destroyed = false;
     this.recordedBBoxes = null;
+    this.#pagesMapper = pagesMapper;
   }
 
   /**
@@ -2402,9 +2415,14 @@ class WorkerTransport {
 
   #passwordCapability = null;
 
-  #pagesMapper = PagesMapper.instance;
-
-  constructor(messageHandler, loadingTask, networkStream, params, factory) {
+  constructor(
+    messageHandler,
+    loadingTask,
+    networkStream,
+    params,
+    factory,
+    pagesMapper
+  ) {
     this.messageHandler = messageHandler;
     this.loadingTask = loadingTask;
     this.#networkStream = networkStream;
@@ -2429,7 +2447,8 @@ class WorkerTransport {
 
     this.setupMessageHandler();
 
-    this.#pagesMapper.addListener(this.#updateCaches.bind(this));
+    this.pagesMapper = pagesMapper;
+    this.pagesMapper.addListener(this.#updateCaches.bind(this));
 
     if (typeof PDFJSDev === "undefined" || PDFJSDev.test("TESTING")) {
       // For testing purposes.
@@ -2458,8 +2477,8 @@ class WorkerTransport {
   #updateCaches() {
     const newPageCache = new Map();
     const newPromiseCache = new Map();
-    for (let i = 0, ii = this.#pagesMapper.pagesNumber; i < ii; i++) {
-      const prevPageIndex = this.#pagesMapper.getPrevPageNumber(i + 1) - 1;
+    for (let i = 0, ii = this.pagesMapper.pagesNumber; i < ii; i++) {
+      const prevPageIndex = this.pagesMapper.getPrevPageNumber(i + 1) - 1;
       const page = this.#pageCache.get(prevPageIndex);
       if (page) {
         newPageCache.set(i, page);
@@ -2730,7 +2749,7 @@ class WorkerTransport {
     });
 
     messageHandler.on("GetDoc", ({ pdfInfo }) => {
-      this.#pagesMapper.pagesNumber = pdfInfo.numPages;
+      this.pagesMapper.pagesNumber = pdfInfo.numPages;
       this._numPages = pdfInfo.numPages;
       this._htmlForXfa = pdfInfo.htmlForXfa;
       delete pdfInfo.htmlForXfa;
@@ -2947,12 +2966,12 @@ class WorkerTransport {
     if (
       !Number.isInteger(pageNumber) ||
       pageNumber <= 0 ||
-      pageNumber > this.#pagesMapper.pagesNumber
+      pageNumber > this.pagesMapper.pagesNumber
     ) {
       return Promise.reject(new Error("Invalid page request."));
     }
     const pageIndex = pageNumber - 1;
-    const newPageIndex = this.#pagesMapper.getPageId(pageNumber) - 1;
+    const newPageIndex = this.pagesMapper.getPageId(pageNumber) - 1;
 
     const cachedPromise = this.#pagePromises.get(pageIndex);
     if (cachedPromise) {
@@ -2974,6 +2993,7 @@ class WorkerTransport {
           pageIndex,
           pageInfo,
           this,
+          this.pagesMapper,
           this._params.pdfBug
         );
         this.#pageCache.set(pageIndex, page);
@@ -2991,12 +3011,12 @@ class WorkerTransport {
       num: ref.num,
       gen: ref.gen,
     });
-    return this.#pagesMapper.getPageNumber(index + 1) - 1;
+    return this.pagesMapper.getPageNumber(index + 1) - 1;
   }
 
   getAnnotations(pageIndex, intent) {
     return this.messageHandler.sendWithPromise("GetAnnotations", {
-      pageIndex: this.#pagesMapper.getPageId(pageIndex + 1) - 1,
+      pageIndex: this.pagesMapper.getPageId(pageIndex + 1) - 1,
       intent,
     });
   }
@@ -3063,13 +3083,13 @@ class WorkerTransport {
 
   getPageJSActions(pageIndex) {
     return this.messageHandler.sendWithPromise("GetPageJSActions", {
-      pageIndex: this.#pagesMapper.getPageId(pageIndex + 1) - 1,
+      pageIndex: this.pagesMapper.getPageId(pageIndex + 1) - 1,
     });
   }
 
   getStructTree(pageIndex) {
     return this.messageHandler.sendWithPromise("GetStructTree", {
-      pageIndex: this.#pagesMapper.getPageId(pageIndex + 1) - 1,
+      pageIndex: this.pagesMapper.getPageId(pageIndex + 1) - 1,
     });
   }
 
@@ -3141,7 +3161,7 @@ class WorkerTransport {
     const refStr = ref.gen === 0 ? `${ref.num}R` : `${ref.num}R${ref.gen}`;
     const pageIndex = this.#pageRefCache.get(refStr);
     return pageIndex >= 0
-      ? this.#pagesMapper.getPageNumber(pageIndex + 1)
+      ? this.pagesMapper.getPageNumber(pageIndex + 1)
       : null;
   }
 }
