@@ -18,6 +18,7 @@
 /** @typedef {import("./event_utils").EventBus} EventBus */
 // eslint-disable-next-line max-len
 /** @typedef {import("./pdf_rendering_queue").PDFRenderingQueue} PDFRenderingQueue */
+/** @typedef {import("./pdf_link_service.js").PDFLinkService} PDFLinkService */
 
 import {
   binarySearchFirstItem,

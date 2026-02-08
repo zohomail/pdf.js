@@ -14,6 +14,7 @@
  */
 
 /** @typedef {import("./event_utils").EventBus} EventBus */
+/** @typedef {import("./pdf_link_service.js").PDFLinkService} PDFLinkService */
 
 import { isValidRotation, parseQueryString } from "./ui_utils.js";
 import { updateUrlHash } from "pdfjs-lib";

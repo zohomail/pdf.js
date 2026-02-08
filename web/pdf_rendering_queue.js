@@ -16,6 +16,7 @@
 /** @typedef {import("./pdf_viewer").PDFViewer} PDFViewer */
 // eslint-disable-next-line max-len
 /** @typedef {import("./pdf_thumbnail_viewer").PDFThumbnailViewer} PDFThumbnailViewer */
+/** @typedef {import("./renderable_view").RenderableView} RenderableView */
 
 import { RenderingCancelledException } from "pdfjs-lib";
 import { RenderingStates } from "./renderable_view.js";
