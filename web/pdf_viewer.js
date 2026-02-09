@@ -30,7 +30,6 @@ import {
   AnnotationEditorUIManager,
   AnnotationMode,
   MathClamp,
-  PagesMapper,
   PermissionFlag,
   PixelsPerInch,
   shadow,
@@ -286,8 +285,6 @@ class PDFViewer {
 
   #viewerAlert = null;
 
-  #pagesMapper = PagesMapper.instance;
-
   /**
    * @param {PDFViewerOptions} options
    */
@@ -298,9 +295,6 @@ class PDFViewer {
       throw new Error(
         `The API version "${version}" does not match the Viewer version "${viewerVersion}".`
       );
-    }
-    if (typeof PDFJSDev === "undefined" || PDFJSDev.test("TESTING")) {
-      this.pagesMapper = PagesMapper.instance;
     }
 
     this.container = options.container;
@@ -880,7 +874,6 @@ class PDFViewer {
       this.#annotationEditorMode = AnnotationEditorType.NONE;
 
       this.#printingAllowed = true;
-      this.#pagesMapper.pagesNumber = 0;
     }
 
     this.pdfDocument = pdfDocument;

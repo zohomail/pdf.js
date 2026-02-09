@@ -1045,38 +1045,38 @@ class PagesMapper {
    * Maps page IDs to their corresponding page numbers.
    * @type {Uint32Array|null}
    */
-  static #idToPageNumber = null;
+  #idToPageNumber = null;
 
   /**
    * Maps page numbers to their corresponding page IDs.
    * @type {Uint32Array|null}
    */
-  static #pageNumberToId = null;
+  #pageNumberToId = null;
 
   /**
    * Previous mapping of page IDs to page numbers.
    * @type {Uint32Array|null}
    */
-  static #prevIdToPageNumber = null;
+  #prevIdToPageNumber = null;
 
   /**
    * The total number of pages.
    * @type {number}
    */
-  static #pagesNumber = 0;
+  #pagesNumber = 0;
 
   /**
    * Listeners for page changes.
    * @type {Array<function>}
    */
-  static #listeners = [];
+  #listeners = [];
 
   /**
    * Gets the total number of pages.
    * @returns {number} The number of pages.
    */
   get pagesNumber() {
-    return PagesMapper.#pagesNumber;
+    return this.#pagesNumber;
   }
 
   /**
@@ -1085,52 +1085,49 @@ class PagesMapper {
    * @param {number} n - The total number of pages.
    */
   set pagesNumber(n) {
-    if (PagesMapper.#pagesNumber === n) {
+    if (this.#pagesNumber === n) {
       return;
     }
-    PagesMapper.#pagesNumber = n;
+    this.#pagesNumber = n;
     if (n === 0) {
-      PagesMapper.#pageNumberToId = null;
-      PagesMapper.#idToPageNumber = null;
+      this.#pageNumberToId = null;
+      this.#idToPageNumber = null;
     }
   }
 
   addListener(listener) {
-    PagesMapper.#listeners.push(listener);
+    this.#listeners.push(listener);
   }
 
   removeListener(listener) {
-    const index = PagesMapper.#listeners.indexOf(listener);
+    const index = this.#listeners.indexOf(listener);
     if (index >= 0) {
-      PagesMapper.#listeners.splice(index, 1);
+      this.#listeners.splice(index, 1);
     }
   }
 
   #updateListeners() {
-    for (const listener of PagesMapper.#listeners) {
+    for (const listener of this.#listeners) {
       listener();
     }
   }
 
   #init(mustInit) {
-    if (PagesMapper.#pageNumberToId) {
+    if (this.#pageNumberToId) {
       return;
     }
-    const n = PagesMapper.#pagesNumber;
+    const n = this.#pagesNumber;
 
     // Allocate a single array for better memory locality.
     const array = new Uint32Array(3 * n);
-    const pageNumberToId = (PagesMapper.#pageNumberToId = array.subarray(0, n));
-    const idToPageNumber = (PagesMapper.#idToPageNumber = array.subarray(
-      n,
-      2 * n
-    ));
+    const pageNumberToId = (this.#pageNumberToId = array.subarray(0, n));
+    const idToPageNumber = (this.#idToPageNumber = array.subarray(n, 2 * n));
     if (mustInit) {
       for (let i = 0; i < n; i++) {
         pageNumberToId[i] = idToPageNumber[i] = i + 1;
       }
     }
-    PagesMapper.#prevIdToPageNumber = array.subarray(2 * n);
+    this.#prevIdToPageNumber = array.subarray(2 * n);
   }
 
   /**
@@ -1143,9 +1140,9 @@ class PagesMapper {
    */
   movePages(selectedPages, pagesToMove, index) {
     this.#init(true);
-    const pageNumberToId = PagesMapper.#pageNumberToId;
-    const idToPageNumber = PagesMapper.#idToPageNumber;
-    PagesMapper.#prevIdToPageNumber.set(idToPageNumber);
+    const pageNumberToId = this.#pageNumberToId;
+    const idToPageNumber = this.#idToPageNumber;
+    this.#prevIdToPageNumber.set(idToPageNumber);
     const movedCount = pagesToMove.length;
     const mappedPagesToMove = new Uint32Array(movedCount);
     let removedBeforeTarget = 0;
@@ -1158,7 +1155,7 @@ class PagesMapper {
       }
     }
 
-    const pagesNumber = PagesMapper.#pagesNumber;
+    const pagesNumber = this.#pagesNumber;
     // target index after removing elements that were before it
     let adjustedTarget = index - removedBeforeTarget;
     const remainingLen = pagesNumber - movedCount;
@@ -1201,7 +1198,7 @@ class PagesMapper {
    * @returns {boolean} True if the mappings have been altered, false otherwise.
    */
   hasBeenAltered() {
-    return PagesMapper.#pageNumberToId !== null;
+    return this.#pageNumberToId !== null;
   }
 
   /**
@@ -1211,16 +1208,14 @@ class PagesMapper {
   getPageMappingForSaving() {
     // Saving is index-based.
     return {
-      pageIndices: PagesMapper.#idToPageNumber
-        ? PagesMapper.#idToPageNumber.map(x => x - 1)
+      pageIndices: this.#idToPageNumber
+        ? this.#idToPageNumber.map(x => x - 1)
         : null,
     };
   }
 
   getPrevPageNumber(pageNumber) {
-    return PagesMapper.#prevIdToPageNumber[
-      PagesMapper.#pageNumberToId[pageNumber - 1] - 1
-    ];
+    return this.#prevIdToPageNumber[this.#pageNumberToId[pageNumber - 1] - 1];
   }
 
   /**
@@ -1229,7 +1224,7 @@ class PagesMapper {
    * @returns {number} The page number, or the ID itself if no mapping exists.
    */
   getPageNumber(id) {
-    return PagesMapper.#idToPageNumber?.[id - 1] ?? id;
+    return this.#idToPageNumber?.[id - 1] ?? id;
   }
 
   /**
@@ -1239,19 +1234,11 @@ class PagesMapper {
    * exists.
    */
   getPageId(pageNumber) {
-    return PagesMapper.#pageNumberToId?.[pageNumber - 1] ?? pageNumber;
-  }
-
-  /**
-   * Gets or creates a singleton instance of PagesMapper.
-   * @returns {PagesMapper} The singleton instance.
-   */
-  static get instance() {
-    return shadow(this, "instance", new PagesMapper());
+    return this.#pageNumberToId?.[pageNumber - 1] ?? pageNumber;
   }
 
   getMapping() {
-    return PagesMapper.#pageNumberToId.subarray(0, this.pagesNumber);
+    return this.#pageNumberToId.subarray(0, this.pagesNumber);
   }
 }
 

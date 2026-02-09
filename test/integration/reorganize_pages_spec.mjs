@@ -104,12 +104,12 @@ function movePages(page, selectedPages, atIndex) {
   return page.evaluate(
     (selected, index) => {
       const viewer = window.PDFViewerApplication.pdfViewer;
+      const pagesMapper = viewer.pdfDocument.pagesMapper;
       const pagesToMove = Array.from(selected).sort((a, b) => a - b);
-      viewer.pagesMapper.pagesNumber =
-        document.querySelectorAll(".page").length;
-      viewer.pagesMapper.movePages(new Set(pagesToMove), pagesToMove, index);
+      pagesMapper.pagesNumber = document.querySelectorAll(".page").length;
+      pagesMapper.movePages(new Set(pagesToMove), pagesToMove, index);
       window.PDFViewerApplication.eventBus.dispatch("pagesedited", {
-        pagesMapper: viewer.pagesMapper,
+        pagesMapper,
         index,
         pagesToMove,
       });

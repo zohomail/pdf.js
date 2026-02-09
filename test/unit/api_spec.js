@@ -5403,6 +5403,36 @@ small scripts as well as for`);
     });
   });
 
+  describe("Multiple documents and pages mapper", function () {
+    it("should load multiple documents in parallel", async function () {
+      const loadingTask1 = getDocument(buildGetDocumentParams("pdkids.pdf"));
+      const loadingTask2 = getDocument(
+        buildGetDocumentParams("page_with_number.pdf")
+      );
+      const loadingTask3 = getDocument(buildGetDocumentParams("empty.pdf"));
+
+      const [pdfDoc1, pdfDoc2, pdfDoc3] = await Promise.all([
+        loadingTask1.promise,
+        loadingTask2.promise,
+        loadingTask3.promise,
+      ]);
+      // Each document has its own pages mapper, so the number of pages
+      // should be correct for each document.
+      expect(pdfDoc1.numPages).toEqual(55);
+      expect(pdfDoc1.pagesMapper.pagesNumber).toEqual(55);
+      expect(pdfDoc2.numPages).toEqual(17);
+      expect(pdfDoc2.pagesMapper.pagesNumber).toEqual(17);
+      expect(pdfDoc3.numPages).toEqual(1);
+      expect(pdfDoc3.pagesMapper.pagesNumber).toEqual(1);
+
+      await Promise.all([
+        loadingTask1.destroy(),
+        loadingTask2.destroy(),
+        loadingTask3.destroy(),
+      ]);
+    });
+  });
+
   describe("PDF page editing", function () {
     const getPageRefs = async pdfDoc => {
       const refs = [];

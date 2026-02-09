@@ -25,7 +25,7 @@ import {
   isValidRotation,
   watchScroll,
 } from "./ui_utils.js";
-import { MathClamp, noContextMenu, PagesMapper, stopEvent } from "pdfjs-lib";
+import { MathClamp, noContextMenu, stopEvent } from "pdfjs-lib";
 import { Menu } from "./menu.js";
 import { PDFThumbnailView } from "./pdf_thumbnail_view.js";
 import { RenderingStates } from "./renderable_view.js";
@@ -109,7 +109,7 @@ class PDFThumbnailViewer {
 
   #currentScrollTop = 0;
 
-  #pagesMapper = PagesMapper.instance;
+  #pagesMapper = null;
 
   #manageSaveAsButton = null;
 
@@ -275,6 +275,7 @@ class PDFThumbnailViewer {
     if (!pdfDocument) {
       return;
     }
+    this.#pagesMapper = pdfDocument.pagesMapper;
     const firstPagePromise = pdfDocument.getPage(1);
     const optionalContentConfigPromise = pdfDocument.getOptionalContentConfig({
       intent: "display",
