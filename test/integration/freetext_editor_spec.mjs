@@ -2404,11 +2404,12 @@ describe("FreeText Editor", () => {
           await switchToFreeText(page);
 
           const parentId = "p3R_mc8";
+          await page.waitForSelector(`#${parentId}`);
           const rect = await page.evaluate(id => {
             const parent = document.getElementById(id);
             let span = null;
             for (const child of parent.childNodes) {
-              if (child.innerText === "000.[5]") {
+              if (child.innerText.endsWith("000.[5]")) {
                 span = child;
                 break;
               }
