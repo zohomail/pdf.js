@@ -82,7 +82,7 @@ const config = JSON.parse(fs.readFileSync(CONFIG_FILE).toString());
 
 const ENV_TARGETS = [
   "last 2 versions",
-  "Chrome >= 110",
+  "Chrome >= 118",
   "Firefox ESR",
   "Safari >= 16.4",
   "Node >= 20",
@@ -1297,10 +1297,6 @@ function createDefaultPrefsFile() {
   return createStringSource(defaultFileName, buf.join("\n"));
 }
 
-function replaceMozcentralCSS() {
-  return replace(/var\(--(inline-(?:start|end))\)/g, "$1");
-}
-
 gulp.task(
   "mozcentral",
   gulp.series(
@@ -1376,7 +1372,6 @@ gulp.task(
               autoprefixer(MOZCENTRAL_AUTOPREFIXER_CONFIG),
             ])
           )
-          .pipe(replaceMozcentralCSS())
           .pipe(gulp.dest(MOZCENTRAL_CONTENT_DIR + "web")),
 
         preprocessCSS("web/viewer-geckoview.css", gvDefines)
@@ -1386,7 +1381,6 @@ gulp.task(
               autoprefixer(MOZCENTRAL_AUTOPREFIXER_CONFIG),
             ])
           )
-          .pipe(replaceMozcentralCSS())
           .pipe(gulp.dest(MOZCENTRAL_CONTENT_DIR + "web")),
 
         gulp
