@@ -963,6 +963,10 @@ class AnnotationEditorUIManager {
       },
       { capture: true, signal }
     );
+    window.addEventListener("beforeunload", this.#beforeUnload.bind(this), {
+      capture: true,
+      signal,
+    });
     this.#addSelectionListener();
     this.#addDragAndDropListeners();
     this.#addKeyboardManager();
@@ -1396,6 +1400,11 @@ class AnnotationEditorUIManager {
 
   commentSelection(methodOfCreation = "") {
     this.highlightSelection(methodOfCreation, /* comment */ true);
+  }
+
+  #beforeUnload(e) {
+    this.commitOrRemove();
+    this.currentLayer?.endDrawingSession(/* isAborted = */ false);
   }
 
   #displayFloatingToolbar() {
