@@ -44,8 +44,6 @@ async function fetchData(url, type = "text") {
       throw new Error(response.statusText);
     }
     switch (type) {
-      case "arraybuffer":
-        return response.arrayBuffer();
       case "blob":
         return response.blob();
       case "bytes":
@@ -71,7 +69,6 @@ async function fetchData(url, type = "text") {
           case "bytes":
             resolve(new Uint8Array(request.response));
             return;
-          case "arraybuffer":
           case "blob":
           case "json":
             resolve(request.response);
