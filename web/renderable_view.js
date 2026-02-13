@@ -28,7 +28,7 @@ class RenderableView {
   renderingId = "";
 
   /**
-   * @type {RenderTask | null}
+   * @type {import("../src/display/api").RenderTask | null}
    */
   renderTask = null;
 
@@ -47,14 +47,14 @@ class RenderableView {
   }
 
   /**
-   * @type {RenderingStates}
+   * @type {number}
    */
   get renderingState() {
     throw new Error("Abstract getter `renderingState` accessed");
   }
 
   /**
-   * @param {RenderingStates}
+   * @param {number} state
    */
   set renderingState(state) {
     throw new Error("Abstract setter `renderingState` accessed");
