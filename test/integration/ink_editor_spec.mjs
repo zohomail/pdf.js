@@ -17,6 +17,7 @@ import {
   awaitPromise,
   clearEditors,
   closePages,
+  countStorageEntries,
   dragAndDrop,
   getAnnotationSelector,
   getEditors,
@@ -1232,6 +1233,46 @@ describe("Ink must update its color", () => {
           ".canvasWrapper svg.draw[stroke='#ff0000']",
           { visible: true }
         );
+      })
+    );
+  });
+});
+
+describe("Ink must committed when leaving the tab", () => {
+  let pages;
+
+  beforeEach(async () => {
+    pages = await loadAndWait("empty.pdf", ".annotationEditorLayer");
+  });
+
+  afterEach(async () => {
+    await closePages(pages);
+  });
+
+  it("must check that the annotation storage is updated when leaving the tab", async () => {
+    await Promise.all(
+      pages.map(async ([browserName, page]) => {
+        await switchToInk(page);
+
+        const rect = await getRect(page, ".annotationEditorLayer");
+
+        const x = rect.x + 20;
+        const y = rect.y + 20;
+        await drawLine(page, x, y, x + 50, y + 50);
+
+        const count = await countStorageEntries(page);
+        expect(count).withContext(`In ${browserName}`).toEqual(0);
+
+        // Trigger the beforeunload event to force auto-commit
+        await page.evaluate(() => {
+          window.dispatchEvent(new Event("beforeunload"));
+        });
+
+        // Wait for the annotation to be committed to storage
+        await waitForStorageEntries(page, 1);
+
+        const countAfter = await countStorageEntries(page);
+        expect(countAfter).withContext(`In ${browserName}`).toEqual(1);
       })
     );
   });
