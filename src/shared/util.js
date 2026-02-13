@@ -475,6 +475,11 @@ function updateUrlHash(url, hash, allowRel = false) {
   return "";
 }
 
+// Extract the final component from a path string.
+function stripPath(str) {
+  return str.substring(str.lastIndexOf("/") + 1);
+}
+
 function shadow(obj, prop, value, nonSerializable = false) {
   if (typeof PDFJSDev === "undefined" || PDFJSDev.test("TESTING")) {
     assert(
@@ -1343,6 +1348,7 @@ export {
   stringToBytes,
   stringToPDFString,
   stringToUTF8String,
+  stripPath,
   TextRenderingMode,
   UnknownErrorException,
   unreachable,

@@ -19,6 +19,7 @@ import {
   FeatureTest,
   MathClamp,
   shadow,
+  stripPath,
   Util,
   warn,
 } from "../shared/util.js";
@@ -325,7 +326,7 @@ function isPdfFile(filename) {
  */
 function getFilenameFromUrl(url) {
   [url] = url.split(/[#?]/, 1);
-  return url.substring(url.lastIndexOf("/") + 1);
+  return stripPath(url);
 }
 
 /**
@@ -375,7 +376,7 @@ function getPdfFilenameFromUrl(url, defaultFilename = "document.pdf") {
     try {
       let decoded = decodeURIComponent(name);
       if (decoded.includes("/")) {
-        decoded = decoded.split("/").at(-1);
+        decoded = stripPath(decoded);
         if (decoded.test(/^\.pdf$/i)) {
           return decoded;
         }
@@ -388,7 +389,7 @@ function getPdfFilenameFromUrl(url, defaultFilename = "document.pdf") {
   };
 
   const pdfRegex = /\.pdf$/i;
-  const filename = newURL.pathname.split("/").at(-1);
+  const filename = stripPath(newURL.pathname);
   if (pdfRegex.test(filename)) {
     return decode(filename);
   }
