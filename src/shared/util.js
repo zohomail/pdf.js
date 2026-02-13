@@ -1248,6 +1248,18 @@ if (
   };
 }
 
+// See https://developer.mozilla.org/en-US/docs/Web/API/Response/bytes#browser_compatibility
+if (
+  typeof PDFJSDev !== "undefined" &&
+  !PDFJSDev.test("SKIP_BABEL") &&
+  typeof Response.prototype.bytes !== "function"
+) {
+  Response.prototype.bytes = async function () {
+    return new Uint8Array(await this.arrayBuffer());
+  };
+}
+
+// TODO: Remove this once Safari 17.4 is the lowest supported version.
 if (
   typeof PDFJSDev !== "undefined" &&
   !PDFJSDev.test("SKIP_BABEL") &&

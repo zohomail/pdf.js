@@ -41,8 +41,7 @@ class DefaultFileReaderFactory {
     if (isNodeJS) {
       return fetchDataNode(params.path);
     }
-    const data = await fetchDataDOM(params.path, /* type = */ "arraybuffer");
-    return new Uint8Array(data);
+    return fetchDataDOM(params.path, /* type = */ "bytes");
   }
 }
 

@@ -44,10 +44,10 @@ async function fetchData(url, type = "text") {
       throw new Error(response.statusText);
     }
     switch (type) {
-      case "arraybuffer":
-        return response.arrayBuffer();
       case "blob":
         return response.blob();
+      case "bytes":
+        return response.bytes();
       case "json":
         return response.json();
     }
@@ -58,7 +58,7 @@ async function fetchData(url, type = "text") {
   return new Promise((resolve, reject) => {
     const request = new XMLHttpRequest();
     request.open("GET", url, /* async = */ true);
-    request.responseType = type;
+    request.responseType = type === "bytes" ? "arraybuffer" : type;
 
     request.onreadystatechange = () => {
       if (request.readyState !== XMLHttpRequest.DONE) {
@@ -66,7 +66,9 @@ async function fetchData(url, type = "text") {
       }
       if (request.status === 200 || request.status === 0) {
         switch (type) {
-          case "arraybuffer":
+          case "bytes":
+            resolve(new Uint8Array(request.response));
+            return;
           case "blob":
           case "json":
             resolve(request.response);

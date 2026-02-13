@@ -129,7 +129,7 @@ async function fetchBinaryData(url) {
       `Failed to fetch file "${url}" with "${response.statusText}".`
     );
   }
-  return new Uint8Array(await response.arrayBuffer());
+  return response.bytes();
 }
 
 /**
