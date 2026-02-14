@@ -118,6 +118,7 @@ export default [
             "web",
             "fluent-bundle",
             "fluent-dom",
+            "postcss-nesting",
             "postcss-values-parser",
             "stylelint",
             // See https://github.com/firebase/firebase-admin-node/discussions/1359.
