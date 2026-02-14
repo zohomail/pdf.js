@@ -301,7 +301,11 @@ class ChunkedStreamManager {
       const readChunk = ({ value, done }) => {
         try {
           if (done) {
-            resolve(arrayBuffersToBytes(chunks));
+            resolve(
+              chunks.length > 0 || !this.disableAutoFetch
+                ? arrayBuffersToBytes(chunks)
+                : null
+            );
             chunks = null;
             return;
           }
@@ -321,6 +325,11 @@ class ChunkedStreamManager {
     }).then(data => {
       if (this.aborted) {
         return; // Ignoring any data after abort.
+      }
+      if (!data) {
+        // The range request wasn't dispatched, see the "GetRangeReader" handler
+        // in the `src/display/api.js` file.
+        return;
       }
       this.onReceiveData({ chunk: data.buffer, begin });
     });
