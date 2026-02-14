@@ -172,8 +172,7 @@ class PDFPageView extends BasePDFPageView {
   constructor(options) {
     super(options);
 
-    const container = options.container;
-    const defaultViewport = options.defaultViewport;
+    const { container, defaultViewport } = options;
 
     this.renderingId = "page" + this.id;
     this.#layerProperties = options.layerProperties || DEFAULT_LAYER_PROPERTIES;

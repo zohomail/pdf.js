@@ -1462,14 +1462,17 @@ class Annotation {
  * Contains all data regarding an annotation's border style.
  */
 class AnnotationBorderStyle {
-  constructor() {
-    this.width = 1;
-    this.rawWidth = 1;
-    this.style = AnnotationBorderStyleType.SOLID;
-    this.dashArray = [3];
-    this.horizontalCornerRadius = 0;
-    this.verticalCornerRadius = 0;
-  }
+  width = 1;
+
+  rawWidth = 1;
+
+  style = AnnotationBorderStyleType.SOLID;
+
+  dashArray = [3];
+
+  horizontalCornerRadius = 0;
+
+  verticalCornerRadius = 0;
 
   /**
    * Set the width.

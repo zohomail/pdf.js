@@ -991,24 +991,31 @@ class CFFParser {
 
 // Compact Font Format
 class CFF {
-  constructor() {
-    this.header = null;
-    this.names = [];
-    this.topDict = null;
-    this.strings = new CFFStrings();
-    this.globalSubrIndex = null;
+  header = null;
 
-    // The following could really be per font, but since we only have one font
-    // store them here.
-    this.encoding = null;
-    this.charset = null;
-    this.charStrings = null;
-    this.fdArray = [];
-    this.fdSelect = null;
+  names = [];
 
-    this.isCIDFont = false;
-    this.charStringCount = 0;
-  }
+  topDict = null;
+
+  strings = new CFFStrings();
+
+  globalSubrIndex = null;
+
+  // The following could really be per font, but since we only have one font
+  // store them here.
+  encoding = null;
+
+  charset = null;
+
+  charStrings = null;
+
+  fdArray = [];
+
+  fdSelect = null;
+
+  isCIDFont = false;
+
+  charStringCount = 0;
 
   duplicateFirstGlyph() {
     // Browsers will not display a glyph at position 0. Typically glyph 0 is
