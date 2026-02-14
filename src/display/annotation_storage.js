@@ -35,15 +35,17 @@ class AnnotationStorage {
 
   #storage = new Map();
 
-  constructor() {
-    // Callbacks to signal when the modification state is set or reset.
-    // This is used by the viewer to only bind on `beforeunload` if forms
-    // are actually edited to prevent doing so unconditionally since that
-    // can have undesirable effects.
-    this.onSetModified = null;
-    this.onResetModified = null;
-    this.onAnnotationEditor = null;
+  // Callbacks to signal when the modification state is set or reset.
+  // This is used by the viewer to only bind on `beforeunload` if forms
+  // are actually edited to prevent doing so unconditionally since that
+  // can have undesirable effects.
+  onSetModified = null;
 
+  onResetModified = null;
+
+  onAnnotationEditor = null;
+
+  constructor() {
     if (typeof PDFJSDev === "undefined" || PDFJSDev.test("TESTING")) {
       // For testing purposes.
       Object.defineProperty(this, "_setValues", {

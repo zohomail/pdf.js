@@ -148,6 +148,7 @@ export default [
       "unicorn/prefer-array-index-of": "error",
       "unicorn/prefer-array-some": "error",
       "unicorn/prefer-at": "error",
+      "unicorn/prefer-class-fields": "error",
       "unicorn/prefer-classlist-toggle": "error",
       "unicorn/prefer-date-now": "error",
       "unicorn/prefer-dom-node-append": "error",

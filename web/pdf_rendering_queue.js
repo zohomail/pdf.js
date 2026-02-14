@@ -27,19 +27,24 @@ const CLEANUP_TIMEOUT = 30000;
  * Controls rendering of the views for pages and thumbnails.
  */
 class PDFRenderingQueue {
-  constructor() {
-    this.pdfViewer = null;
-    this.pdfThumbnailViewer = null;
-    this.onIdle = null;
-    this.highestPriorityPage = null;
-    /** @type {number} */
-    this.idleTimeout = null;
-    this.printing = false;
-    this.isThumbnailViewEnabled = false;
+  #highestPriorityPage = null;
 
+  #idleTimeout = null;
+
+  #pdfThumbnailViewer = null;
+
+  #pdfViewer = null;
+
+  isThumbnailViewEnabled = false;
+
+  onIdle = null;
+
+  printing = false;
+
+  constructor() {
     if (typeof PDFJSDev === "undefined" || PDFJSDev.test("GENERIC")) {
       Object.defineProperty(this, "hasViewer", {
-        value: () => !!this.pdfViewer,
+        value: () => !!this.#pdfViewer,
       });
     }
   }
@@ -48,14 +53,14 @@ class PDFRenderingQueue {
    * @param {PDFViewer} pdfViewer
    */
   setViewer(pdfViewer) {
-    this.pdfViewer = pdfViewer;
+    this.#pdfViewer = pdfViewer;
   }
 
   /**
    * @param {PDFThumbnailViewer} pdfThumbnailViewer
    */
   setThumbnailViewer(pdfThumbnailViewer) {
-    this.pdfThumbnailViewer = pdfThumbnailViewer;
+    this.#pdfThumbnailViewer = pdfThumbnailViewer;
   }
 
   /**
@@ -63,26 +68,26 @@ class PDFRenderingQueue {
    * @returns {boolean}
    */
   isHighestPriority(view) {
-    return this.highestPriorityPage === view.renderingId;
+    return this.#highestPriorityPage === view.renderingId;
   }
 
   /**
    * @param {Object} currentlyVisiblePages
    */
   renderHighestPriority(currentlyVisiblePages) {
-    if (this.idleTimeout) {
-      clearTimeout(this.idleTimeout);
-      this.idleTimeout = null;
+    if (this.#idleTimeout) {
+      clearTimeout(this.#idleTimeout);
+      this.#idleTimeout = null;
     }
 
     // Pages have a higher priority than thumbnails, so check them first.
-    if (this.pdfViewer.forceRendering(currentlyVisiblePages)) {
+    if (this.#pdfViewer.forceRendering(currentlyVisiblePages)) {
       return;
     }
     // No pages needed rendering, so check thumbnails.
     if (
       this.isThumbnailViewEnabled &&
-      this.pdfThumbnailViewer?.forceRendering()
+      this.#pdfThumbnailViewer?.forceRendering()
     ) {
       return;
     }
@@ -93,7 +98,7 @@ class PDFRenderingQueue {
     }
 
     if (this.onIdle) {
-      this.idleTimeout = setTimeout(this.onIdle.bind(this), CLEANUP_TIMEOUT);
+      this.#idleTimeout = setTimeout(this.onIdle.bind(this), CLEANUP_TIMEOUT);
     }
   }
 
@@ -202,14 +207,14 @@ class PDFRenderingQueue {
       case RenderingStates.FINISHED:
         return false;
       case RenderingStates.PAUSED:
-        this.highestPriorityPage = view.renderingId;
+        this.#highestPriorityPage = view.renderingId;
         view.resume();
         break;
       case RenderingStates.RUNNING:
-        this.highestPriorityPage = view.renderingId;
+        this.#highestPriorityPage = view.renderingId;
         break;
       case RenderingStates.INITIAL:
-        this.highestPriorityPage = view.renderingId;
+        this.#highestPriorityPage = view.renderingId;
         view
           .draw()
           .finally(() => {
