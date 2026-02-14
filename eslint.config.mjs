@@ -118,6 +118,7 @@ export default [
             "web",
             "fluent-bundle",
             "fluent-dom",
+            "postcss-dir-pseudo-class",
             "postcss-nesting",
             "postcss-values-parser",
             "stylelint",
