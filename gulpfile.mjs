@@ -1938,15 +1938,39 @@ gulp.task(
     "generic-legacy",
     "lib-legacy",
     function runUnitTestCli(done) {
-      const options = [
-        "node_modules/jasmine/bin/jasmine",
-        "JASMINE_CONFIG_PATH=test/unit/clitests.json",
-      ];
-      const jasmineProcess = startNode(options, { stdio: "inherit" });
+      const useCoverage = process.argv.includes("--coverage");
+
+      if (useCoverage) {
+        console.log("\n### Running unit tests with code coverage");
+      }
+
+      let jasmineProcess;
+      if (useCoverage) {
+        const options = [
+          "node_modules/c8/bin/c8.js",
+          "node",
+          "--max-http-header-size=80000",
+          "node_modules/jasmine/bin/jasmine",
+          "JASMINE_CONFIG_PATH=test/unit/clitests.json",
+        ];
+        jasmineProcess = spawn("node", options, { stdio: "inherit" });
+      } else {
+        const options = [
+          "node_modules/jasmine/bin/jasmine",
+          "JASMINE_CONFIG_PATH=test/unit/clitests.json",
+        ];
+        jasmineProcess = startNode(options, { stdio: "inherit" });
+      }
+
       jasmineProcess.on("close", function (code) {
         if (code !== 0) {
           done(new Error("Unit tests failed."));
           return;
+        }
+        if (useCoverage) {
+          console.log(
+            "\n### Code coverage report generated in ./build/coverage directory"
+          );
         }
         done();
       });
