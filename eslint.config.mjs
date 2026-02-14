@@ -119,6 +119,7 @@ export default [
             "fluent-bundle",
             "fluent-dom",
             "postcss-values-parser",
+            "stylelint",
             // See https://github.com/firebase/firebase-admin-node/discussions/1359.
             "eslint-plugin-perfectionist",
           ],

@@ -50,7 +50,7 @@
     "postcss-values-parser": "^7.0.0",
     "prettier": "^3.8.1",
     "puppeteer": "^24.37.3",
-    "stylelint": "^16.26.1",
+    "stylelint": "^17.3.0",
     "stylelint-prettier": "^5.0.3",
     "svglint": "^4.2.0",
     "terser-webpack-plugin": "^5.3.16",
