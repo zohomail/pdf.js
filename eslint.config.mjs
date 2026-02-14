@@ -116,6 +116,7 @@ export default [
             "pdfjs-lib",
             "pdfjs-web",
             "web",
+            "@csstools/postcss-light-dark-function",
             "fluent-bundle",
             "fluent-dom",
             "postcss-dir-pseudo-class",
