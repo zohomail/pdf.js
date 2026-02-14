@@ -293,46 +293,37 @@ class ChunkedStreamManager {
     this.msgHandler = args.msgHandler;
   }
 
-  sendRequest(begin, end) {
+  async sendRequest(begin, end) {
     const rangeReader = this.pdfStream.getRangeReader(begin, end);
-
     let chunks = [];
-    return new Promise((resolve, reject) => {
-      const readChunk = ({ value, done }) => {
-        try {
-          if (done) {
-            resolve(
-              chunks.length > 0 || !this.disableAutoFetch
-                ? arrayBuffersToBytes(chunks)
-                : null
-            );
-            chunks = null;
-            return;
-          }
-          if (typeof PDFJSDev === "undefined" || PDFJSDev.test("TESTING")) {
-            assert(
-              value instanceof ArrayBuffer,
-              "readChunk (sendRequest) - expected an ArrayBuffer."
-            );
-          }
-          chunks.push(value);
-          rangeReader.read().then(readChunk, reject);
-        } catch (e) {
-          reject(e);
-        }
-      };
-      rangeReader.read().then(readChunk, reject);
-    }).then(data => {
+
+    while (true) {
+      const { value, done } = await rangeReader.read();
+
       if (this.aborted) {
+        chunks = null;
         return; // Ignoring any data after abort.
       }
-      if (!data) {
-        // The range request wasn't dispatched, see the "GetRangeReader" handler
-        // in the `src/display/api.js` file.
-        return;
+      if (done) {
+        break;
       }
-      this.onReceiveData({ chunk: data.buffer, begin });
-    });
+      if (typeof PDFJSDev === "undefined" || PDFJSDev.test("TESTING")) {
+        assert(
+          value instanceof ArrayBuffer,
+          "sendRequest - expected an ArrayBuffer."
+        );
+      }
+      chunks.push(value);
+    }
+
+    if (chunks.length === 0 && this.disableAutoFetch) {
+      // The range request wasn't dispatched, see the "GetRangeReader" handler
+      // in the `src/display/api.js` file.
+      return;
+    }
+    const data = arrayBuffersToBytes(chunks);
+    chunks = null;
+    this.onReceiveData({ chunk: data.buffer, begin });
   }
 
   /**
