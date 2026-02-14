@@ -26,7 +26,7 @@
     "eslint-plugin-no-unsanitized": "^4.1.4",
     "eslint-plugin-perfectionist": "^5.5.0",
     "eslint-plugin-prettier": "^5.5.5",
-    "eslint-plugin-unicorn": "^62.0.0",
+    "eslint-plugin-unicorn": "^63.0.0",
     "globals": "^17.3.0",
     "gulp": "^5.0.1",
     "gulp-cli": "^3.1.0",
