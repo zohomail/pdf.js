@@ -103,6 +103,8 @@ import { XfaLayerBuilder } from "./xfa_layer_builder.js";
  * @property {boolean} [enableAutoLinking] - Enable creation of hyperlinks from
  *   text that look like URLs. The default value is `true`.
  * @property {CommentManager} [commentManager] - The comment manager instance.
+ * @property {PDFPageView} [clonedFrom] - The page view that is cloned
+ *   to.
  */
 
 const DEFAULT_LAYER_PROPERTIES =
@@ -166,6 +168,8 @@ class PDFPageView extends BasePDFPageView {
 
   #layers = [null, null, null, null];
 
+  #clonedFrom = null;
+
   /**
    * @param {PDFPageViewOptions} options
    */
@@ -197,6 +201,7 @@ class PDFPageView extends BasePDFPageView {
       options.capCanvasAreaFactor ?? AppOptions.get("capCanvasAreaFactor");
     this.#enableAutoLinking = options.enableAutoLinking !== false;
     this.#commentManager = options.commentManager || null;
+    this.#clonedFrom = options.clonedFrom || null;
 
     this.l10n = options.l10n;
     if (typeof PDFJSDev === "undefined" || PDFJSDev.test("GENERIC")) {
@@ -226,7 +231,6 @@ class PDFPageView extends BasePDFPageView {
     div.setAttribute("data-l10n-id", "pdfjs-page-landmark");
     div.setAttribute("data-l10n-args", JSON.stringify({ page: this.id }));
     this.div = div;
-
     this.#setDimensions();
     container?.append(div);
 
@@ -268,6 +272,35 @@ class PDFPageView extends BasePDFPageView {
         this.l10n.translate(this.div);
       }
     }
+  }
+
+  clone(id) {
+    const clone = new PDFPageView({
+      container: null,
+      eventBus: this.eventBus,
+      pagesColors: this.pageColors,
+      renderingQueue: this.renderingQueue,
+      enableOptimizedPartialRendering: this.enableOptimizedPartialRendering,
+      minDurationToUpdateCanvas: this.minDurationToUpdateCanvas,
+      defaultViewport: this.viewport,
+      id,
+      layerProperties: this.#layerProperties,
+      scale: this.scale,
+      optionalContentConfigPromise: this._optionalContentConfigPromise,
+      textLayerMode: this.#textLayerMode,
+      annotationMode: this.#annotationMode,
+      imageResourcesPath: this.imageResourcesPath,
+      enableDetailCanvas: this.enableDetailCanvas,
+      maxCanvasPixels: this.maxCanvasPixels,
+      maxCanvasDim: this.maxCanvasDim,
+      capCanvasAreaFactor: this.capCanvasAreaFactor,
+      enableAutoLinking: this.#enableAutoLinking,
+      commentManager: this.#commentManager,
+      l10n: this.l10n,
+      clonedFrom: this,
+    });
+    clone.setPdfPage(this.pdfPage);
+    return clone;
   }
 
   #addLayer(div, name) {
@@ -331,6 +364,7 @@ class PDFPageView extends BasePDFPageView {
     this._textHighlighter.pageIdx = newPageNumber - 1;
     // Don't update the page index for the draw layer, since it's just used as
     // an identifier.
+    this.annotationEditorLayer?.updatePageIndex(newPageNumber - 1);
   }
 
   setPdfPage(pdfPage) {
@@ -376,6 +410,15 @@ class PDFPageView extends BasePDFPageView {
   destroy() {
     this.reset();
     this.pdfPage?.cleanup();
+  }
+
+  deleteMe(isCut) {
+    if (isCut) {
+      this.div.remove();
+      return;
+    }
+    this.destroy();
+    this.#layerProperties.annotationEditorUIManager?.deletePage(this.id);
   }
 
   hasEditableAnnotations() {
@@ -1140,17 +1183,19 @@ class PDFPageView extends BasePDFPageView {
       ) {
         this.annotationEditorLayer ||= new AnnotationEditorLayerBuilder({
           uiManager: annotationEditorUIManager,
-          pdfPage,
+          pageIndex: this.id - 1,
           l10n,
           structTreeLayer: this.structTreeLayer,
           accessibilityManager: this._accessibilityManager,
           annotationLayer: this.annotationLayer?.annotationLayer,
           textLayer: this.textLayer,
           drawLayer: this.drawLayer.getDrawLayer(),
+          clonedFrom: this.#clonedFrom?.annotationEditorLayer,
           onAppend: annotationEditorLayerDiv => {
             this.#addLayer(annotationEditorLayerDiv, "annotationEditorLayer");
           },
         });
+        this.#clonedFrom = null;
         this.#renderAnnotationEditorLayer();
       }
     });

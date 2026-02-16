@@ -131,6 +131,15 @@ function createPromise(page, callback) {
   );
 }
 
+function createPromiseWithArgs(page, callback, args) {
+  return page.evaluateHandle(
+    // eslint-disable-next-line no-eval, no-shadow
+    (cb, args) => [new Promise(eval(`(${cb})`))],
+    callback.toString(),
+    args
+  );
+}
+
 function awaitPromise(promise) {
   return promise.evaluate(([p]) => p);
 }
@@ -253,7 +262,7 @@ function getAnnotationSelector(id) {
 }
 
 function getThumbnailSelector(pageNumber) {
-  return `.thumbnailImage[data-l10n-args='{"page":${pageNumber}}']`;
+  return `.thumbnailImageContainer[data-l10n-args='{"page":${pageNumber}}']`;
 }
 
 async function getSpanRectFromText(page, pageNumber, text) {
@@ -963,6 +972,7 @@ export {
   countSerialized,
   countStorageEntries,
   createPromise,
+  createPromiseWithArgs,
   dragAndDrop,
   firstPageOnTop,
   FSI,

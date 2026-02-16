@@ -19,8 +19,6 @@ import { RenderingCancelledException } from "pdfjs-lib";
 class BasePDFPageView extends RenderableView {
   #loadingId = null;
 
-  #minDurationToUpdateCanvas = 0;
-
   #renderError = null;
 
   #renderingState = RenderingStates.INITIAL;
@@ -56,7 +54,7 @@ class BasePDFPageView extends RenderableView {
     this.renderingQueue = options.renderingQueue;
     this.enableOptimizedPartialRendering =
       options.enableOptimizedPartialRendering ?? false;
-    this.#minDurationToUpdateCanvas = options.minDurationToUpdateCanvas ?? 500;
+    this.minDurationToUpdateCanvas = options.minDurationToUpdateCanvas ?? 500;
   }
 
   get renderingState() {
@@ -116,14 +114,14 @@ class BasePDFPageView extends RenderableView {
     this.#showCanvas = isLastShow => {
       if (updateOnFirstShow) {
         let tempCanvas = this.#tempCanvas;
-        if (!isLastShow && this.#minDurationToUpdateCanvas > 0) {
+        if (!isLastShow && this.minDurationToUpdateCanvas > 0) {
           // We draw on the canvas at 60fps (in using `requestAnimationFrame`),
           // so if the canvas is large, updating it at 60fps can be a way too
           // much and can cause some serious performance issues.
           // To avoid that we only update the canvas every
           // `this.#minDurationToUpdateCanvas` ms.
 
-          if (Date.now() - this.#startTime < this.#minDurationToUpdateCanvas) {
+          if (Date.now() - this.#startTime < this.minDurationToUpdateCanvas) {
             return;
           }
           if (!tempCanvas) {

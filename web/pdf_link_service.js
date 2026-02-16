@@ -85,7 +85,7 @@ class PDFLinkService {
    * @type {number}
    */
   get pagesCount() {
-    return this.pdfDocument ? this.pdfDocument.numPages : 0;
+    return this.pdfDocument?.pagesMapper.pagesNumber || 0;
   }
 
   /**

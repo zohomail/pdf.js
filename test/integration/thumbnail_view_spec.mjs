@@ -9,7 +9,7 @@ import {
 
 function waitForThumbnailVisible(page, pageNum) {
   return page.waitForSelector(
-    `.thumbnailImage[data-l10n-args='{"page":${pageNum}}']`,
+    `.thumbnailImageContainer[data-l10n-args='{"page":${pageNum}}']`,
     { visible: true }
   );
 }
@@ -46,7 +46,8 @@ describe("PDF Thumbnail View", () => {
         pages.map(async ([browserName, page]) => {
           await page.click("#viewsManagerToggleButton");
 
-          const thumbSelector = "#thumbnailsView .thumbnailImage";
+          const thumbSelector =
+            "#thumbnailsView .thumbnailImageContainer > img";
           await page.waitForSelector(thumbSelector, { visible: true });
 
           await waitForThumbnailVisible(page, 1);
@@ -110,12 +111,15 @@ describe("PDF Thumbnail View", () => {
 
           for (const pageNum of [14, 1, 13, 2]) {
             await goToPage(page, pageNum);
-            const thumbSelector = `.thumbnailImage[data-l10n-args='{"page":${pageNum}}']`;
+            const thumbSelector = `.thumbnailImageContainer[data-l10n-args='{"page":${pageNum}}']`;
             await page.waitForSelector(
               `.thumbnail ${thumbSelector}[aria-current="page"]`,
               { visible: true }
             );
-            const src = await page.$eval(thumbSelector, el => el.src);
+            const src = await page.$eval(
+              `${thumbSelector} > img`,
+              el => el.src
+            );
             expect(src)
               .withContext(`In ${browserName}`)
               .toMatch(/^blob:http:/);
@@ -167,7 +171,7 @@ describe("PDF Thumbnail View", () => {
           expect(
             await isElementFocused(
               page,
-              `#thumbnailsView .thumbnailImage[data-l10n-args='{"page":1}']`
+              `#thumbnailsView .thumbnailImageContainer[data-l10n-args='{"page":1}']`
             )
           )
             .withContext(`In ${browserName}`)
@@ -177,7 +181,7 @@ describe("PDF Thumbnail View", () => {
           expect(
             await isElementFocused(
               page,
-              `#thumbnailsView .thumbnailImage[data-l10n-args='{"page":2}']`
+              `#thumbnailsView .thumbnailImageContainer[data-l10n-args='{"page":2}']`
             )
           )
             .withContext(`In ${browserName}`)
@@ -187,7 +191,7 @@ describe("PDF Thumbnail View", () => {
           expect(
             await isElementFocused(
               page,
-              `#thumbnailsView .thumbnailImage[data-l10n-args='{"page":1}']`
+              `#thumbnailsView .thumbnailImageContainer[data-l10n-args='{"page":1}']`
             )
           )
             .withContext(`In ${browserName}`)
@@ -198,7 +202,7 @@ describe("PDF Thumbnail View", () => {
           expect(
             await isElementFocused(
               page,
-              `#thumbnailsView .thumbnailImage[data-l10n-args='{"page":3}']`
+              `#thumbnailsView .thumbnailImageContainer[data-l10n-args='{"page":3}']`
             )
           )
             .withContext(`In ${browserName}`)
@@ -214,7 +218,7 @@ describe("PDF Thumbnail View", () => {
           expect(
             await isElementFocused(
               page,
-              `#thumbnailsView .thumbnailImage[data-l10n-args='{"page":14}']`
+              `#thumbnailsView .thumbnailImageContainer[data-l10n-args='{"page":14}']`
             )
           )
             .withContext(`In ${browserName}`)
@@ -224,7 +228,7 @@ describe("PDF Thumbnail View", () => {
           expect(
             await isElementFocused(
               page,
-              `#thumbnailsView .thumbnailImage[data-l10n-args='{"page":1}']`
+              `#thumbnailsView .thumbnailImageContainer[data-l10n-args='{"page":1}']`
             )
           )
             .withContext(`In ${browserName}`)
