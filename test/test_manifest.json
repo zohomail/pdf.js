@@ -13945,5 +13945,14 @@
     "link": true,
     "lastPage": 1,
     "type": "eq"
+  },
+  {
+    "id": "issue20668",
+    "file": "pdfs/issue20668.pdf",
+    "md5": "70233922a9354c3708637902a8e22e70",
+    "rounds": 1,
+    "link": true,
+    "lastPage": 1,
+    "type": "eq"
   }
 ]
