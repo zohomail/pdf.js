@@ -432,6 +432,80 @@ describe("Text layer", () => {
           );
         });
       });
+
+      describe("when selecting text with find highlights active", () => {
+        let pages;
+
+        beforeEach(async () => {
+          pages = await loadAndWait("find_all.pdf", ".textLayer", 100);
+        });
+
+        afterEach(async () => {
+          await closePages(pages);
+        });
+
+        it("doesn't jump when selection anchor is inside a highlight element", async () => {
+          await Promise.all(
+            pages.map(async ([browserName, page]) => {
+              // Highlight all occurrences of the letter A (case insensitive).
+              await page.click("#viewFindButton");
+              await page.waitForSelector("#findInput", { visible: true });
+              await page.type("#findInput", "a");
+              await page.click("#findHighlightAll + label");
+              await page.waitForSelector(".textLayer .highlight");
+
+              // find_all.pdf contains 'AB BA' in a monospace font. These are
+              // the glyph metrics at 100% zoom, extracted from the PDF.
+              const glyphWidth = 15.98;
+              const expectedFirstAX = 30;
+
+              // Compute the drag coordinates to select exactly "AB". The
+              // horizontal positions use the page origin and PDF glyph
+              // metrics; the vertical center comes from the highlight.
+              const pageDiv = await page.$(".page canvas");
+              const pageBox = await pageDiv.boundingBox();
+              const firstHighlight = await page.$(".textLayer .highlight");
+              const highlightBox = await firstHighlight.boundingBox();
+
+              // Drag from beginning of first 'A' to end of second 'B'
+              const aStart = pageBox.x + expectedFirstAX;
+              const startY = Math.round(
+                highlightBox.y + highlightBox.height / 2
+              );
+              const bEnd = Math.round(aStart + glyphWidth * 2);
+
+              await page.mouse.move(aStart, startY);
+              await page.mouse.down();
+              await moveInSteps(
+                page,
+                { x: aStart, y: startY },
+                { x: bEnd, y: startY },
+                20
+              );
+              await page.mouse.up();
+
+              const selection = await page.evaluate(() =>
+                window.getSelection().toString()
+              );
+              expect(selection).withContext(`In ${browserName}`).toEqual("AB");
+
+              // The selectionchange handler in TextLayerBuilder walks up
+              // from .highlight to its parent span before placing
+              // endOfContent (see text_layer_builder.js). Without that
+              // fix, endOfContent would be inserted inside the text span
+              // (as a sibling of the .highlight) instead of as a direct
+              // child of .textLayer. Verify the correct DOM structure.
+              const endOfContentIsDirectChild = await page.evaluate(() => {
+                const eoc = document.querySelector(".textLayer .endOfContent");
+                return eoc?.parentElement?.classList.contains("textLayer");
+              });
+              expect(endOfContentIsDirectChild)
+                .withContext(`In ${browserName}`)
+                .toBeTrue();
+            })
+          );
+        });
+      });
     });
 
     describe("using selection carets", () => {
