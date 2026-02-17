@@ -121,16 +121,6 @@ class PDFThumbnailView extends RenderableView {
     thumbnailContainer.setAttribute("page-number", id);
     thumbnailContainer.setAttribute("page-id", id);
 
-    if (enableSplitMerge) {
-      const checkbox = (this.checkbox = document.createElement("input"));
-      checkbox.type = "checkbox";
-      checkbox.tabIndex = -1;
-      checkbox.setAttribute("data-l10n-id", "pdfjs-thumb-page-checkbox");
-      checkbox.setAttribute("data-l10n-args", this.#pageL10nArgs);
-      thumbnailContainer.append(checkbox);
-      this.pasteButton = null;
-    }
-
     const imageContainer = (this.imageContainer =
       document.createElement("div"));
     thumbnailContainer.append(imageContainer);
@@ -145,6 +135,17 @@ class PDFThumbnailView extends RenderableView {
 
     const image = (this.image = document.createElement("img"));
     imageContainer.append(image);
+
+    if (enableSplitMerge) {
+      const checkbox = (this.checkbox = document.createElement("input"));
+      checkbox.type = "checkbox";
+      checkbox.tabIndex = -1;
+      checkbox.setAttribute("data-l10n-id", "pdfjs-thumb-page-checkbox");
+      checkbox.setAttribute("data-l10n-args", this.#pageL10nArgs);
+      thumbnailContainer.append(checkbox);
+      this.pasteButton = null;
+    }
+
     this.#updateDims();
 
     container.append(thumbnailContainer);
@@ -271,9 +272,15 @@ class PDFThumbnailView extends RenderableView {
     if (isCurrent) {
       imageContainer.ariaCurrent = "page";
       imageContainer.tabIndex = 0;
+      if (this.checkbox) {
+        this.checkbox.tabIndex = 0;
+      }
     } else {
       imageContainer.ariaCurrent = false;
       imageContainer.tabIndex = -1;
+      if (this.checkbox) {
+        this.checkbox.tabIndex = -1;
+      }
     }
   }
 
