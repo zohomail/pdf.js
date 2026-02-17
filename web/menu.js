@@ -28,6 +28,8 @@ class Menu {
 
   #lastIndex = -1;
 
+  #onFocusOutBound = this.#onFocusOut.bind(this);
+
   /**
    * Create a menu for the given button.
    * @param {HTMLElement} menuContainer
@@ -97,7 +99,18 @@ class Menu {
       },
       { signal }
     );
-    window.addEventListener("blur", this.#closeMenu.bind(this), { signal });
+    const closeMenu = this.#closeMenu.bind(this);
+    window.addEventListener("blur", closeMenu, { signal });
+    menu.addEventListener("focusout", this.#onFocusOutBound, { signal });
+  }
+
+  #onFocusOut({ relatedTarget }) {
+    if (
+      !this.#triggeringButton.contains(relatedTarget) &&
+      !this.#menu.contains(relatedTarget)
+    ) {
+      this.#closeMenu();
+    }
   }
 
   /**
@@ -112,6 +125,7 @@ class Menu {
 
       this.#openMenu();
     });
+    this.#triggeringButton.addEventListener("focusout", this.#onFocusOutBound);
 
     const { signal } = this.#menuAC;
 
@@ -148,7 +162,12 @@ class Menu {
             stopEvent(e);
             break;
           default:
-            const char = e.key.toLocaleLowerCase();
+            const { key } = e;
+            if (!/^\p{L}$/u.test(key)) {
+              // It isn't a single letter, so ignore it.
+              break;
+            }
+            const char = key.toLocaleLowerCase();
             this.#goToNextItem(e.target, true, item =>
               item.textContent.trim().toLowerCase().startsWith(char)
             );
