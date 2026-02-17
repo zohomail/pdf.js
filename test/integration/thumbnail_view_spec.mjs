@@ -12,6 +12,21 @@ function waitForThumbnailVisible(page, pageNum) {
   );
 }
 
+async function waitForMenu(page, buttonSelector, visible = true) {
+  return page.waitForFunction(
+    (selector, vis) => {
+      const button = document.querySelector(selector);
+      if (!button) {
+        return false;
+      }
+      return button.getAttribute("aria-expanded") === (vis ? "true" : "false");
+    },
+    {},
+    buttonSelector,
+    visible
+  );
+}
+
 describe("PDF Thumbnail View", () => {
   describe("Works without errors", () => {
     let pages;
@@ -197,6 +212,107 @@ describe("PDF Thumbnail View", () => {
           )
             .withContext(`In ${browserName}`)
             .toBe(true);
+        })
+      );
+    });
+  });
+
+  describe("The manage dropdown menu", () => {
+    let pages;
+
+    beforeEach(async () => {
+      pages = await loadAndWait(
+        "tracemonkey.pdf",
+        "#viewsManagerToggleButton",
+        null,
+        null,
+        { enableSplitMerge: true }
+      );
+    });
+
+    afterEach(async () => {
+      await closePages(pages);
+    });
+
+    async function enableMenuItems(page) {
+      await page.evaluate(() => {
+        document
+          .querySelectorAll("#viewsManagerStatusActionOptions button")
+          .forEach(button => {
+            button.disabled = false;
+          });
+      });
+    }
+
+    it("should open with Enter key and remain open", async () => {
+      await Promise.all(
+        pages.map(async ([browserName, page]) => {
+          await page.click("#viewsManagerToggleButton");
+          await waitForThumbnailVisible(page, 1);
+
+          await enableMenuItems(page);
+
+          // Focus the manage button
+          await kbFocusNext(page);
+          await kbFocusNext(page);
+          await page.waitForSelector("#viewsManagerStatusActionButton:focus", {
+            visible: true,
+          });
+
+          // Press Enter to open the menu
+          await page.keyboard.press("Enter");
+
+          await waitForMenu(page, "#viewsManagerStatusActionButton");
+
+          // Verify first menu item can be focused
+          await page.waitForSelector("#viewsManagerStatusActionCopy:focus", {
+            visible: true,
+          });
+
+          // Close menu with Escape
+          await page.keyboard.press("Escape");
+          await waitForMenu(page, "#viewsManagerStatusActionButton", false);
+        })
+      );
+    });
+
+    it("should open with Space key and remain open", async () => {
+      await Promise.all(
+        pages.map(async ([browserName, page]) => {
+          await page.click("#viewsManagerToggleButton");
+          await waitForThumbnailVisible(page, 1);
+
+          await enableMenuItems(page);
+
+          // Focus the manage button
+          await kbFocusNext(page);
+          await kbFocusNext(page);
+          await page.waitForSelector("#viewsManagerStatusActionButton:focus", {
+            visible: true,
+          });
+
+          // Press Space to open the menu
+          await page.keyboard.press(" ");
+
+          await waitForMenu(page, "#viewsManagerStatusActionButton");
+
+          // Verify first menu item can be focused
+          await page.waitForSelector("#viewsManagerStatusActionCopy:focus", {
+            visible: true,
+          });
+
+          // Navigate menu items with arrow keys
+          await page.keyboard.press("ArrowDown");
+          await page.waitForSelector("#viewsManagerStatusActionCut:focus", {
+            visible: true,
+          });
+
+          // Menu should still be open
+          await waitForMenu(page, "#viewsManagerStatusActionButton");
+
+          // Close menu with Escape
+          await page.keyboard.press("Escape");
+          await waitForMenu(page, "#viewsManagerStatusActionButton", false);
         })
       );
     });
