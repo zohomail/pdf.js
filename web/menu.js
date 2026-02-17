@@ -71,6 +71,36 @@ class Menu {
   }
 
   /**
+   * Open the menu.
+   */
+  #openMenu() {
+    if (this.#openMenuAC) {
+      return;
+    }
+
+    const menu = this.#menu;
+    this.#triggeringButton.ariaExpanded = "true";
+    this.#openMenuAC = new AbortController();
+    const signal = AbortSignal.any([
+      this.#menuAC.signal,
+      this.#openMenuAC.signal,
+    ]);
+    window.addEventListener(
+      "pointerdown",
+      ({ target }) => {
+        if (
+          !this.#triggeringButton.contains(target) &&
+          !menu.contains(target)
+        ) {
+          this.#closeMenu();
+        }
+      },
+      { signal }
+    );
+    window.addEventListener("blur", this.#closeMenu.bind(this), { signal });
+  }
+
+  /**
    * Set up the menu.
    */
   #setUpMenu() {
@@ -80,23 +110,7 @@ class Menu {
         return;
       }
 
-      const menu = this.#menu;
-      this.#triggeringButton.ariaExpanded = "true";
-      this.#openMenuAC = new AbortController();
-      const signal = AbortSignal.any([
-        this.#menuAC.signal,
-        this.#openMenuAC.signal,
-      ]);
-      window.addEventListener(
-        "pointerdown",
-        ({ target }) => {
-          if (target !== this.#triggeringButton && !menu.contains(target)) {
-            this.#closeMenu();
-          }
-        },
-        { signal }
-      );
-      window.addEventListener("blur", this.#closeMenu.bind(this), { signal });
+      this.#openMenu();
     });
 
     const { signal } = this.#menuAC;
@@ -110,12 +124,10 @@ class Menu {
             stopEvent(e);
             break;
           case "ArrowDown":
-          case "Tab":
             this.#goToNextItem(e.target, true);
             stopEvent(e);
             break;
           case "ArrowUp":
-          case "ShiftTab":
             this.#goToNextItem(e.target, false);
             stopEvent(e);
             break;
@@ -124,7 +136,7 @@ class Menu {
               .find(
                 item => !item.disabled && !item.classList.contains("hidden")
               )
-              .focus();
+              ?.focus();
             stopEvent(e);
             break;
           case "End":
@@ -132,7 +144,7 @@ class Menu {
               .findLast(
                 item => !item.disabled && !item.classList.contains("hidden")
               )
-              .focus();
+              ?.focus();
             stopEvent(e);
             break;
           default:
@@ -159,27 +171,27 @@ class Menu {
           case "Enter":
           case "ArrowDown":
           case "Home":
+            stopEvent(e);
             if (!this.#openMenuAC) {
-              this.#triggeringButton.click();
+              this.#openMenu();
             }
             this.#menuItems
               .find(
                 item => !item.disabled && !item.classList.contains("hidden")
               )
-              .focus();
-            stopEvent(e);
+              ?.focus();
             break;
           case "ArrowUp":
           case "End":
+            stopEvent(e);
             if (!this.#openMenuAC) {
-              this.#triggeringButton.click();
+              this.#openMenu();
             }
             this.#menuItems
               .findLast(
                 item => !item.disabled && !item.classList.contains("hidden")
               )
-              .focus();
-            stopEvent(e);
+              ?.focus();
             break;
           case "Escape":
             this.#closeMenu();
