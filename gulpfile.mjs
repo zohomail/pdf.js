@@ -40,6 +40,7 @@ import { preprocess } from "./external/builder/builder.mjs";
 import relative from "metalsmith-html-relative";
 import rename from "gulp-rename";
 import replace from "gulp-replace";
+import sourcemaps from "gulp-sourcemaps";
 import stream from "stream";
 import TerserPlugin from "terser-webpack-plugin";
 import Vinyl from "vinyl";
@@ -1526,27 +1527,13 @@ gulp.task("types", function (done) {
 });
 
 function buildLibHelper(bundleDefines, inputStream, outputDir) {
-  function preprocessLib(content) {
-    const skipBabel = bundleDefines.SKIP_BABEL;
-    content = babel.transform(content, {
-      sourceType: "module",
-      presets: skipBabel
-        ? undefined
-        : [
-            [
-              "@babel/preset-env",
-              { ...BABEL_PRESET_ENV_OPTS, loose: false, modules: false },
-            ],
-          ],
-      plugins: [[babelPluginPDFJSPreprocessor, ctx]],
-      targets: BABEL_TARGETS,
-    }).code;
-    content = content.replaceAll(
-      /(\sfrom\s".*?)(?:\/src)(\/[^"]*"?;)$/gm,
-      (all, prefix, suffix) => prefix + suffix
-    );
-    return licenseHeaderLibre + content;
-  }
+  const licenseHeader = fs
+    .readFileSync("./src/license_header.js")
+    .toString()
+    .split("\n")
+    .slice(1, -2)
+    .map(line => line.replace(/^\s*\*\s?/, ""));
+
   const ctx = {
     rootPath: __dirname,
     defines: bundleDefines,
@@ -1564,12 +1551,82 @@ function buildLibHelper(bundleDefines, inputStream, outputDir) {
       "web-null_l10n": "../web/genericl10n.js",
     },
   };
-  const licenseHeaderLibre = fs
-    .readFileSync("./src/license_header_libre.js")
-    .toString();
-  return inputStream
-    .pipe(transform("utf8", preprocessLib))
-    .pipe(gulp.dest(outputDir));
+  const enableSourceMaps = bundleDefines.TESTING;
+
+  function preprocessLib(file, _enc, callback) {
+    const skipBabel = bundleDefines.SKIP_BABEL;
+
+    if (file.isNull()) {
+      return callback(null, file);
+    }
+
+    if (file.isStream()) {
+      return callback(new Error("Streaming not supported"));
+    }
+
+    try {
+      // Calculate where the output file will be
+      const outputFilePath = path.join(__dirname, outputDir, file.relative);
+      const outputFileDir = path.dirname(outputFilePath);
+      // Calculate relative path from output directory to source file
+      const relativeSourcePath = path.relative(outputFileDir, file.path);
+
+      const result = babel.transform(file.contents.toString(), {
+        sourceType: "module",
+        presets: skipBabel
+          ? undefined
+          : [
+              [
+                "@babel/preset-env",
+                { ...BABEL_PRESET_ENV_OPTS, loose: false, modules: false },
+              ],
+            ],
+        plugins: [
+          [babelPluginPDFJSPreprocessor, ctx],
+          [
+            "add-header-comment",
+            {
+              header: licenseHeader,
+            },
+          ],
+        ],
+        targets: BABEL_TARGETS,
+        sourceMaps: enableSourceMaps,
+        sourceFileName: relativeSourcePath,
+      });
+
+      let code = result.code;
+      code = code.replaceAll(
+        /(\sfrom\s".*?)(?:\/src)(\/[^"]*"?;)$/gm,
+        (all, prefix, suffix) => prefix + suffix
+      );
+
+      file.contents = Buffer.from(code);
+      // Attach the source map to the file for gulp-sourcemaps
+      if (result.map) {
+        file.sourceMap = result.map;
+      }
+
+      return callback(null, file);
+    } catch (err) {
+      return callback(err);
+    }
+  }
+
+  let pipeline = inputStream;
+  if (enableSourceMaps) {
+    pipeline = pipeline.pipe(sourcemaps.init({ loadMaps: true }));
+  }
+  pipeline = pipeline.pipe(
+    new stream.Transform({
+      objectMode: true,
+      transform: preprocessLib,
+    })
+  );
+  if (enableSourceMaps) {
+    pipeline = pipeline.pipe(sourcemaps.write("."));
+  }
+  return pipeline.pipe(gulp.dest(outputDir));
 }
 
 function buildLib(defines, dir) {
@@ -1956,6 +2013,7 @@ gulp.task(
         jasmineProcess = spawn("node", options, { stdio: "inherit" });
       } else {
         const options = [
+          "--enable-source-maps",
           "node_modules/jasmine/bin/jasmine",
           "JASMINE_CONFIG_PATH=test/unit/clitests.json",
         ];
