@@ -200,6 +200,11 @@ pdfjs-thumb-page-title =
 pdfjs-thumb-page-canvas =
     .aria-label = Thumbnail of Page { $page }
 
+# Variables:
+#   $page (Number) - the page number
+pdfjs-thumb-page-checkbox =
+    .aria-label = Select page { $page }
+
 ## Find panel button title and messages
 
 pdfjs-find-input =

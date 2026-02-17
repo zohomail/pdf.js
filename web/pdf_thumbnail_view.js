@@ -125,6 +125,8 @@ class PDFThumbnailView extends RenderableView {
       const checkbox = (this.checkbox = document.createElement("input"));
       checkbox.type = "checkbox";
       checkbox.tabIndex = -1;
+      checkbox.setAttribute("data-l10n-id", "pdfjs-thumb-page-checkbox");
+      checkbox.setAttribute("data-l10n-args", this.#pageL10nArgs);
       imageContainer.append(checkbox);
     }
 
@@ -464,6 +466,7 @@ class PDFThumbnailView extends RenderableView {
   setPageLabel(label) {
     this.pageLabel = typeof label === "string" ? label : null;
     this.image.setAttribute("data-l10n-args", this.#pageL10nArgs);
+    this.checkbox?.setAttribute("data-l10n-args", this.#pageL10nArgs);
   }
 }
 
