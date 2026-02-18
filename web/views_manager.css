@@ -270,13 +270,6 @@
             mask-repeat: no-repeat;
             mask-image: var(--views-manager-button-icon);
             background-color: var(--button-fg);
-
-            &:hover {
-              background-color: var(--button-hover-fg) !important;
-            }
-            &:active {
-              background-color: var(--button-active-fg) !important;
-            }
           }
 
           &::after {
@@ -289,11 +282,18 @@
             mask-position: center;
             mask-image: var(--views-manager-button-arrow-icon);
             background-color: var(--button-fg);
+          }
 
-            &:hover {
+          &:hover {
+            &::before,
+            &::after {
               background-color: var(--button-hover-fg) !important;
             }
-            &:active {
+          }
+
+          &:active {
+            &::before,
+            &::after {
               background-color: var(--button-active-fg) !important;
             }
           }
@@ -416,13 +416,14 @@
               mask-position: center;
               mask-image: var(--manage-button-icon);
               background-color: var(--button-fg);
+            }
 
-              &:hover {
-                background-color: var(--button-hover-fg) !important;
-              }
-              &:active {
-                background-color: var(--button-active-fg) !important;
-              }
+            &:hover::after {
+              background-color: var(--button-hover-fg) !important;
+            }
+
+            &:active::after {
+              background-color: var(--button-active-fg) !important;
             }
           }
 
