@@ -58,6 +58,21 @@ describe("PDF Thumbnail View", () => {
         })
       );
     });
+
+    it("should have accessible label on resizer", async () => {
+      await Promise.all(
+        pages.map(async ([browserName, page]) => {
+          await page.click("#viewsManagerToggleButton");
+
+          const ariaLabel = await page.$eval("#viewsManagerResizer", el =>
+            el.getAttribute("aria-label")
+          );
+          expect(ariaLabel)
+            .withContext(`In ${browserName}`)
+            .toBe("Sidebar resizer");
+        })
+      );
+    });
   });
 
   describe("The view is scrolled correctly", () => {
