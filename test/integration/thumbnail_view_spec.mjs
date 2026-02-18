@@ -355,4 +355,73 @@ describe("PDF Thumbnail View", () => {
       );
     });
   });
+
+  describe("Menu keyboard navigation with multi-character keys (bug 2016212)", () => {
+    let pages;
+
+    beforeEach(async () => {
+      pages = await loadAndWait(
+        "page_with_number_and_link.pdf",
+        "#viewsManagerSelectorButton",
+        null,
+        null,
+        { enableSplitMerge: true }
+      );
+    });
+
+    afterEach(async () => {
+      await closePages(pages);
+    });
+
+    it("must navigate menus with ArrowDown and Tab keys", async () => {
+      await Promise.all(
+        pages.map(async ([browserName, page]) => {
+          await page.click("#viewsManagerToggleButton");
+          await waitForThumbnailVisible(page, 1);
+
+          // Focus the views manager selector button
+          await page.waitForSelector("#viewsManagerSelectorButton", {
+            visible: true,
+          });
+          await page.focus("#viewsManagerSelectorButton");
+
+          // Open menu with Enter key
+          await page.keyboard.press("Enter");
+
+          // Wait for menu to be expanded
+          await waitForMenu(page, "#viewsManagerSelectorButton");
+
+          // Check that focus moved to the first menu button (pages)
+          await page.waitForSelector("#thumbnailsViewMenu:focus", {
+            visible: true,
+          });
+
+          // Press ArrowDown to navigate to second item
+          await page.keyboard.press("ArrowDown");
+
+          // Should now be on outlines button
+          await page.waitForSelector("#outlinesViewMenu:focus", {
+            visible: true,
+          });
+
+          // Press Tab to move to the manage button (should close views menu)
+          await page.keyboard.press("Tab");
+
+          // Wait for views manager menu to be collapsed
+          await waitForMenu(page, "#viewsManagerSelectorButton", false);
+
+          // Focus should be on manage button
+          await page.waitForSelector("#viewsManagerStatusActionButton:focus", {
+            visible: true,
+          });
+
+          // Open manage menu with Space key
+          await page.keyboard.press(" ");
+
+          // Wait for manage menu to be expanded
+          await waitForMenu(page, "#viewsManagerStatusActionButton");
+        })
+      );
+    });
+  });
 });
