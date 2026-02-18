@@ -836,9 +836,7 @@ class AstVariableDefinition extends AstNode {
 }
 
 class ExpressionBuilderVisitor {
-  constructor() {
-    this.parts = [];
-  }
+  parts = [];
 
   visitArgument(arg) {
     this.parts.push(
