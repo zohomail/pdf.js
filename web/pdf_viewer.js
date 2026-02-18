@@ -289,6 +289,8 @@ class PDFViewer {
 
   #viewerAlert = null;
 
+  #copiedPageViews = null;
+
   /**
    * @param {PDFViewerOptions} options
    */
@@ -1173,23 +1175,44 @@ class PDFViewer {
       });
   }
 
-  async onBeforePagesEdited({ pagesMapper }) {
-    await this._pagesCapability.promise;
-    this._currentPageId = pagesMapper.getPageId(this._currentPageNumber);
-  }
+  onPagesEdited({ pagesMapper, type, hasBeenCut, pageNumbers }) {
+    if (type === "copy") {
+      this.#copiedPageViews = new Map();
+      for (const pageNum of pageNumbers) {
+        this.#copiedPageViews.set(pageNum, this._pages[pageNum - 1]);
+      }
+      return;
+    }
 
-  onPagesEdited({ pagesMapper }) {
-    this._currentPageNumber = pagesMapper.getPageNumber(this._currentPageId);
+    const isCut = type === "cut";
+    if (isCut || type === "delete") {
+      for (const pageNum of pageNumbers) {
+        this._pages[pageNum - 1].deleteMe(isCut);
+      }
+    }
+
+    this._currentPageNumber = 0;
     const prevPages = this._pages;
     const newPages = (this._pages = []);
-    for (let i = 0, ii = pagesMapper.pagesNumber; i < ii; i++) {
-      const prevPageNumber = pagesMapper.getPrevPageNumber(i + 1) - 1;
-      if (prevPageNumber === -1) {
+    for (let i = 1, ii = pagesMapper.pagesNumber; i <= ii; i++) {
+      const prevPageNumber = pagesMapper.getPrevPageNumber(i);
+      if (prevPageNumber < 0) {
+        let page = this.#copiedPageViews.get(-prevPageNumber);
+        if (hasBeenCut) {
+          page.updatePageNumber(i);
+        } else {
+          page = page.clone(i);
+        }
+        newPages.push(page);
         continue;
       }
-      const page = prevPages[prevPageNumber];
-      newPages[i] = page;
-      page.updatePageNumber(i + 1);
+      const page = prevPages[prevPageNumber - 1];
+      newPages.push(page);
+      page.updatePageNumber(i);
+    }
+
+    if (!isCut) {
+      this.#copiedPageViews = null;
     }
 
     const viewerElement =
@@ -1204,6 +1227,7 @@ class PDFViewer {
       }
       viewerElement.append(fragment);
     }
+
     setTimeout(() => {
       this.forceRendering();
     });

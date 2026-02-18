@@ -116,10 +116,10 @@ class PDFThumbnailView extends RenderableView {
 
     this.placeholder = null;
 
-    const imageContainer = (this.div = document.createElement("div"));
-    imageContainer.className = "thumbnail";
-    imageContainer.setAttribute("page-number", id);
-    imageContainer.setAttribute("page-id", id);
+    const thumbnailContainer = (this.div = document.createElement("div"));
+    thumbnailContainer.className = "thumbnail";
+    thumbnailContainer.setAttribute("page-number", id);
+    thumbnailContainer.setAttribute("page-id", id);
 
     if (enableSplitMerge) {
       const checkbox = (this.checkbox = document.createElement("input"));
@@ -127,24 +127,80 @@ class PDFThumbnailView extends RenderableView {
       checkbox.tabIndex = -1;
       checkbox.setAttribute("data-l10n-id", "pdfjs-thumb-page-checkbox");
       checkbox.setAttribute("data-l10n-args", this.#pageL10nArgs);
-      imageContainer.append(checkbox);
+      thumbnailContainer.append(checkbox);
+      this.pasteButton = null;
     }
 
+    const imageContainer = (this.imageContainer =
+      document.createElement("div"));
+    thumbnailContainer.append(imageContainer);
+    imageContainer.classList.add(
+      "thumbnailImageContainer",
+      "missingThumbnailImage"
+    );
+    imageContainer.role = "button";
+    imageContainer.tabIndex = -1;
+    imageContainer.draggable = false;
+    imageContainer.setAttribute("page-number", id);
+
     const image = (this.image = document.createElement("img"));
-    image.classList.add("thumbnailImage", "missingThumbnailImage");
-    image.role = "button";
-    image.tabIndex = -1;
-    image.draggable = false;
+    imageContainer.append(image);
     this.#updateDims();
 
-    imageContainer.append(image);
-    container.append(imageContainer);
+    container.append(thumbnailContainer);
+  }
+
+  clone(container, id) {
+    const thumbnailView = new PDFThumbnailView({
+      container,
+      id,
+      eventBus: this.eventBus,
+      defaultViewport: this.viewport,
+      optionalContentConfigPromise: this._optionalContentConfigPromise,
+      linkService: this.linkService,
+      renderingQueue: this.renderingQueue,
+      maxCanvasPixels: this.maxCanvasPixels,
+      maxCanvasDim: this.maxCanvasDim,
+      pageColors: this.pageColors,
+      enableSplitMerge: !!this.checkbox,
+    });
+    thumbnailView.setPdfPage(this.pdfPage);
+    const { imageContainer } = this;
+    if (!imageContainer.classList.contains("missingThumbnailImage")) {
+      thumbnailView.image.replaceWith(this.image.cloneNode(true));
+      thumbnailView.imageContainer.classList.remove("missingThumbnailImage");
+    }
+    return thumbnailView;
+  }
+
+  addPasteButton(pasteCallback) {
+    if (this.pasteButton) {
+      return;
+    }
+    const pasteButton = (this.pasteButton = document.createElement("button"));
+    pasteButton.classList.add("thumbnailPasteButton", "viewsManagerButton");
+    pasteButton.tabIndex = 0;
+    const span = document.createElement("span");
+    span.setAttribute("data-l10n-id", "pdfjs-views-manager-paste-button-label");
+    pasteButton.append(span);
+    pasteButton.addEventListener("click", () => {
+      pasteCallback(this.id);
+    });
+
+    this.imageContainer.after(pasteButton);
+  }
+
+  toggleSelected(isSelected) {
+    if (this.checkbox) {
+      this.checkbox.checked = isSelected;
+    }
   }
 
   updateId(newId) {
     this.id = newId;
     this.renderingId = `thumbnail${newId}`;
     this.div.setAttribute("page-number", newId);
+    this.imageContainer.setAttribute("page-number", newId);
     // TODO: do we set the page label ?
     this.setPageLabel(this.pageLabel);
   }
@@ -157,7 +213,7 @@ class PDFThumbnailView extends RenderableView {
     const canvasHeight = (this.canvasHeight = (canvasWidth / ratio) | 0);
     this.scale = canvasWidth / width;
 
-    this.image.style.height = `${canvasHeight}px`;
+    this.imageContainer.style.height = `${canvasHeight}px`;
   }
 
   get renderingState() {
@@ -181,15 +237,21 @@ class PDFThumbnailView extends RenderableView {
     this.renderingState = RenderingStates.INITIAL;
     this.#updateDims();
 
-    const { image } = this;
+    const { image, imageContainer } = this;
     const url = image.src;
     if (url) {
       URL.revokeObjectURL(url);
-      image.removeAttribute("data-l10n-id");
-      image.removeAttribute("data-l10n-args");
       image.src = "";
-      this.image.classList.add("missingThumbnailImage");
+      imageContainer.removeAttribute("data-l10n-id");
+      imageContainer.removeAttribute("data-l10n-args");
+      imageContainer.classList.add("missingThumbnailImage");
     }
+  }
+
+  destroy() {
+    this.reset();
+    this.toggleCurrent(false);
+    this.div.remove();
   }
 
   update({ rotation = null }) {
@@ -205,12 +267,13 @@ class PDFThumbnailView extends RenderableView {
   }
 
   toggleCurrent(isCurrent) {
+    const { imageContainer } = this;
     if (isCurrent) {
-      this.image.ariaCurrent = "page";
-      this.image.tabIndex = 0;
+      imageContainer.ariaCurrent = "page";
+      imageContainer.tabIndex = 0;
     } else {
-      this.image.ariaCurrent = false;
-      this.image.tabIndex = -1;
+      imageContainer.ariaCurrent = false;
+      imageContainer.tabIndex = -1;
     }
   }
 
@@ -257,14 +320,14 @@ class PDFThumbnailView extends RenderableView {
       throw new Error("#convertCanvasToImage: Rendering has not finished.");
     }
     const reducedCanvas = this.#reduceImage(canvas);
-    const { image } = this;
+    const { imageContainer, image } = this;
     const { promise, resolve } = Promise.withResolvers();
     reducedCanvas.toBlob(resolve);
     const blob = await promise;
     image.src = URL.createObjectURL(blob);
-    image.setAttribute("data-l10n-id", "pdfjs-thumb-page-canvas");
-    image.setAttribute("data-l10n-args", this.#pageL10nArgs);
-    image.classList.remove("missingThumbnailImage");
+    imageContainer.setAttribute("data-l10n-id", "pdfjs-thumb-page-canvas");
+    imageContainer.setAttribute("data-l10n-args", this.#pageL10nArgs);
+    imageContainer.classList.remove("missingThumbnailImage");
     if (!FeatureTest.isOffscreenCanvasSupported) {
       // Clean up the canvas element since it is no longer needed.
       reducedCanvas.width = reducedCanvas.height = 0;
@@ -465,7 +528,7 @@ class PDFThumbnailView extends RenderableView {
    */
   setPageLabel(label) {
     this.pageLabel = typeof label === "string" ? label : null;
-    this.image.setAttribute("data-l10n-args", this.#pageL10nArgs);
+    this.imageContainer.setAttribute("data-l10n-args", this.#pageL10nArgs);
     this.checkbox?.setAttribute("data-l10n-args", this.#pageL10nArgs);
   }
 }

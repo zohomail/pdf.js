@@ -31,7 +31,7 @@ import { GenericL10n } from "web-null_l10n";
 /**
  * @typedef {Object} AnnotationEditorLayerBuilderOptions
  * @property {AnnotationEditorUIManager} [uiManager]
- * @property {PDFPageProxy} pdfPage
+ * @property {number} pageIndex
  * @property {L10n} [l10n]
  * @property {StructTreeLayerBuilder} [structTreeLayer]
  * @property {TextAccessibilityManager} [accessibilityManager]
@@ -39,6 +39,7 @@ import { GenericL10n } from "web-null_l10n";
  * @property {TextLayer} [textLayer]
  * @property {DrawLayer} [drawLayer]
  * @property {function} [onAppend]
+ * @property {AnnotationEditorLayer} [clonedFrom]
  */
 
 /**
@@ -60,11 +61,13 @@ class AnnotationEditorLayerBuilder {
 
   #uiManager;
 
+  #clonedFrom = null;
+
   /**
    * @param {AnnotationEditorLayerBuilderOptions} options
    */
   constructor(options) {
-    this.pdfPage = options.pdfPage;
+    this.pageIndex = options.pageIndex;
     this.accessibilityManager = options.accessibilityManager;
     this.l10n = options.l10n;
     if (typeof PDFJSDev === "undefined" || PDFJSDev.test("GENERIC")) {
@@ -79,6 +82,12 @@ class AnnotationEditorLayerBuilder {
     this.#drawLayer = options.drawLayer || null;
     this.#onAppend = options.onAppend || null;
     this.#structTreeLayer = options.structTreeLayer || null;
+    this.#clonedFrom = options.clonedFrom || null;
+  }
+
+  updatePageIndex(newPageIndex) {
+    this.pageIndex = newPageIndex;
+    this.annotationEditorLayer?.updatePageIndex(newPageIndex);
   }
 
   /**
@@ -113,13 +122,18 @@ class AnnotationEditorLayerBuilder {
       div,
       structTreeLayer: this.#structTreeLayer,
       accessibilityManager: this.accessibilityManager,
-      pageIndex: this.pdfPage.pageNumber - 1,
+      pageIndex: this.pageIndex,
       l10n: this.l10n,
       viewport: clonedViewport,
       annotationLayer: this.#annotationLayer,
       textLayer: this.#textLayer,
       drawLayer: this.#drawLayer,
     });
+
+    this.annotationEditorLayer.setClonedFrom(
+      this.#clonedFrom?.annotationEditorLayer
+    );
+    this.#clonedFrom = null;
 
     const parameters = {
       viewport: clonedViewport,

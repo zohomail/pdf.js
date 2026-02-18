@@ -18,19 +18,21 @@ import {
   clearInput,
   closePages,
   createPromise,
+  createPromiseWithArgs,
   dragAndDrop,
   getAnnotationSelector,
   getRect,
   getThumbnailSelector,
   loadAndWait,
   scrollIntoView,
+  waitAndClick,
   waitForDOMMutation,
 } from "./test_utils.mjs";
 
 async function waitForThumbnailVisible(page, pageNums) {
   await page.click("#viewsManagerToggleButton");
 
-  const thumbSelector = "#thumbnailsView .thumbnailImage";
+  const thumbSelector = "#thumbnailsView .thumbnailImageContainer > img";
   await page.waitForSelector(thumbSelector, { visible: true });
   if (!pageNums) {
     return null;
@@ -45,18 +47,22 @@ async function waitForThumbnailVisible(page, pageNums) {
   );
 }
 
-function waitForPagesEdited(page) {
-  return createPromise(page, resolve => {
-    window.PDFViewerApplication.eventBus.on(
-      "pagesedited",
-      ({ pagesMapper }) => {
+function waitForPagesEdited(page, type) {
+  return createPromiseWithArgs(
+    page,
+    resolve => {
+      const listener = ({ pagesMapper, type: ty }) => {
+        // eslint-disable-next-line no-undef
+        if (args[0] && args[0] !== ty) {
+          return;
+        }
+        window.PDFViewerApplication.eventBus.off("pagesedited", listener);
         resolve(Array.from(pagesMapper.getMapping()));
-      },
-      {
-        once: true,
-      }
-    );
-  });
+      };
+      window.PDFViewerApplication.eventBus.on("pagesedited", listener);
+    },
+    [type]
+  );
 }
 
 async function waitForHavingContents(page, expected) {
@@ -533,7 +539,8 @@ describe("Reorganize Pages View", () => {
           await page.waitForSelector("#thumbnailsViewMenu", { visible: true });
           await page.click("#thumbnailsViewMenu");
 
-          const thumbSelector = "#thumbnailsView .thumbnailImage";
+          const thumbSelector =
+            "#thumbnailsView .thumbnailImageContainer > img";
           await page.waitForSelector(thumbSelector, { visible: true });
           const rect1 = await getRect(page, getThumbnailSelector(1));
           const rect2 = await getRect(page, getThumbnailSelector(2));
@@ -607,7 +614,7 @@ describe("Reorganize Pages View", () => {
             window.PDFViewerApplication.eventBus.on(
               "savepageseditedpdf",
               ({ data }) => {
-                resolve(Array.from(data.pageIndices));
+                resolve(Array.from(data[0].pageIndices));
               },
               {
                 once: true,
@@ -626,6 +633,176 @@ describe("Reorganize Pages View", () => {
             .toEqual([
               1, 0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
             ]);
+        })
+      );
+    });
+  });
+
+  describe("Delete some pages", () => {
+    let pages;
+
+    beforeEach(async () => {
+      pages = await loadAndWait(
+        "page_with_number.pdf",
+        "#viewsManagerToggleButton",
+        "1",
+        null,
+        { enableSplitMerge: true }
+      );
+    });
+
+    afterEach(async () => {
+      await closePages(pages);
+    });
+
+    it("should check that the pages are deleted", async () => {
+      await Promise.all(
+        pages.map(async ([browserName, page]) => {
+          await waitForThumbnailVisible(page, 1);
+          await page.waitForSelector("#viewsManagerStatusActionButton", {
+            visible: true,
+          });
+          await waitAndClick(
+            page,
+            `.thumbnail:has(${getThumbnailSelector(1)}) input`
+          );
+          await waitAndClick(
+            page,
+            `.thumbnail:has(${getThumbnailSelector(3)}) input`
+          );
+
+          const handlePagesEdited = await waitForPagesEdited(page);
+          await waitAndClick(page, "#viewsManagerStatusActionButton");
+          await waitAndClick(page, "#viewsManagerStatusActionDelete");
+
+          const pageIndices = await awaitPromise(handlePagesEdited);
+          const expected = [
+            2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17,
+          ];
+          expect(pageIndices)
+            .withContext(`In ${browserName}`)
+            .toEqual(expected);
+          await waitForHavingContents(page, expected);
+        })
+      );
+    });
+  });
+
+  describe("Cut and paste some pages", () => {
+    let pages;
+
+    beforeEach(async () => {
+      pages = await loadAndWait(
+        "page_with_number.pdf",
+        "#viewsManagerToggleButton",
+        "1",
+        null,
+        { enableSplitMerge: true }
+      );
+    });
+
+    afterEach(async () => {
+      await closePages(pages);
+    });
+
+    it("should check that the pages has been cut and pasted correctly", async () => {
+      await Promise.all(
+        pages.map(async ([browserName, page]) => {
+          await waitForThumbnailVisible(page, 1);
+          await page.waitForSelector("#viewsManagerStatusActionButton", {
+            visible: true,
+          });
+          await waitAndClick(
+            page,
+            `.thumbnail:has(${getThumbnailSelector(1)}) input`
+          );
+          await waitAndClick(
+            page,
+            `.thumbnail:has(${getThumbnailSelector(3)}) input`
+          );
+
+          let handlePagesEdited = await waitForPagesEdited(page, "cut");
+          await waitAndClick(page, "#viewsManagerStatusActionButton");
+          await waitAndClick(page, "#viewsManagerStatusActionCut");
+
+          let pageIndices = await awaitPromise(handlePagesEdited);
+          let expected = [2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17];
+          expect(pageIndices)
+            .withContext(`In ${browserName}`)
+            .toEqual(expected);
+          await waitForHavingContents(page, expected);
+
+          handlePagesEdited = await waitForPagesEdited(page);
+          await waitAndClick(page, `${getThumbnailSelector(1)}+button`);
+          pageIndices = await awaitPromise(handlePagesEdited);
+          expected = [
+            2, 1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17,
+          ];
+          expect(pageIndices)
+            .withContext(`In ${browserName}`)
+            .toEqual(expected);
+          await waitForHavingContents(page, expected);
+        })
+      );
+    });
+  });
+
+  describe("Copy and paste some pages", () => {
+    let pages;
+
+    beforeEach(async () => {
+      pages = await loadAndWait(
+        "page_with_number.pdf",
+        "#viewsManagerToggleButton",
+        "1",
+        null,
+        { enableSplitMerge: true }
+      );
+    });
+
+    afterEach(async () => {
+      await closePages(pages);
+    });
+
+    it("should check that the pages has been copied and pasted correctly", async () => {
+      await Promise.all(
+        pages.map(async ([browserName, page]) => {
+          await waitForThumbnailVisible(page, 1);
+          await page.waitForSelector("#viewsManagerStatusActionButton", {
+            visible: true,
+          });
+          await waitAndClick(
+            page,
+            `.thumbnail:has(${getThumbnailSelector(1)}) input`
+          );
+          await waitAndClick(
+            page,
+            `.thumbnail:has(${getThumbnailSelector(3)}) input`
+          );
+
+          let handlePagesEdited = await waitForPagesEdited(page);
+          await waitAndClick(page, "#viewsManagerStatusActionButton");
+          await waitAndClick(page, "#viewsManagerStatusActionCopy");
+
+          let pageIndices = await awaitPromise(handlePagesEdited);
+          let expected = [
+            1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17,
+          ];
+          expect(pageIndices)
+            .withContext(`In ${browserName}`)
+            .toEqual(expected);
+          await waitForHavingContents(page, expected);
+
+          handlePagesEdited = await waitForPagesEdited(page);
+          await waitAndClick(page, `${getThumbnailSelector(2)}+button`);
+          pageIndices = await awaitPromise(handlePagesEdited);
+          expected = [
+            1, 2, 1, 3, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17,
+          ];
+          expect(pageIndices)
+            .withContext(`In ${browserName}`)
+            .toEqual(expected);
+          await waitForHavingContents(page, expected);
         })
       );
     });

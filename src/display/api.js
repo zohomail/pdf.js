@@ -2405,6 +2405,8 @@ class WorkerTransport {
 
   #passwordCapability = null;
 
+  #copiedPageInfo = null;
+
   constructor(
     messageHandler,
     loadingTask,
@@ -2464,11 +2466,42 @@ class WorkerTransport {
     }
   }
 
-  #updateCaches() {
+  #updateCaches({ type, pageNumbers }) {
+    if (type === "copy") {
+      this.#copiedPageInfo = new Map();
+      for (const pageNum of pageNumbers) {
+        this.#copiedPageInfo.set(pageNum, {
+          proxy: this.#pageCache.get(pageNum - 1) || null,
+          promise: this.#pagePromises.get(pageNum - 1) || null,
+        });
+      }
+      return;
+    }
+
+    if (type === "delete") {
+      for (const pageNum of pageNumbers) {
+        this.#pageCache.delete(pageNum - 1);
+        this.#pagePromises.delete(pageNum - 1);
+      }
+    }
+
     const newPageCache = new Map();
     const newPromiseCache = new Map();
-    for (let i = 0, ii = this.pagesMapper.pagesNumber; i < ii; i++) {
-      const prevPageIndex = this.pagesMapper.getPrevPageNumber(i + 1) - 1;
+    const { pagesMapper } = this;
+    for (let i = 0, ii = pagesMapper.pagesNumber; i < ii; i++) {
+      const prevPageNumber = pagesMapper.getPrevPageNumber(i + 1);
+      if (prevPageNumber < 0) {
+        const { proxy, promise } =
+          this.#copiedPageInfo?.get(-prevPageNumber) || {};
+        if (proxy) {
+          newPageCache.set(i, proxy);
+        }
+        if (promise) {
+          newPromiseCache.set(i, promise);
+        }
+        continue;
+      }
+      const prevPageIndex = prevPageNumber - 1;
       const page = this.#pageCache.get(prevPageIndex);
       if (page) {
         newPageCache.set(i, page);
@@ -3001,7 +3034,11 @@ class WorkerTransport {
       num: ref.num,
       gen: ref.gen,
     });
-    return this.pagesMapper.getPageNumber(index + 1) - 1;
+    const pageNumber = this.pagesMapper.getPageNumber(index + 1);
+    if (pageNumber === 0) {
+      throw new Error("GetPageIndex: page has been removed.");
+    }
+    return pageNumber - 1;
   }
 
   getAnnotations(pageIndex, intent) {
@@ -3150,9 +3187,13 @@ class WorkerTransport {
     }
     const refStr = ref.gen === 0 ? `${ref.num}R` : `${ref.num}R${ref.gen}`;
     const pageIndex = this.#pageRefCache.get(refStr);
-    return pageIndex >= 0
-      ? this.pagesMapper.getPageNumber(pageIndex + 1)
-      : null;
+    if (pageIndex >= 0) {
+      const pageNumber = this.pagesMapper.getPageNumber(pageIndex + 1);
+      if (pageNumber !== 0) {
+        return pageNumber;
+      }
+    }
+    return null;
   }
 }
 

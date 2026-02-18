@@ -145,7 +145,44 @@ class AnnotationEditorLayer {
   }
 
   updatePageIndex(newPageIndex) {
+    for (const editor of this.#allEditorsIterator) {
+      editor.updatePageIndex(newPageIndex);
+    }
+
     this.pageIndex = newPageIndex;
+    this.#uiManager.addLayer(this);
+  }
+
+  /**
+   * Clones all annotation editors from another layer into this layer.
+   * This is typically used when duplicating a page - the editors from the
+   * source page are serialized and then deserialized into the new page's layer.
+   *
+   * @param {AnnotationEditorLayer} clonedFrom - The source annotation editor
+   *   layer to clone editors from. If null or undefined, no action is taken.
+   * @returns {Promise<void>} A promise that resolves when all editors have been
+   *   cloned and added to this layer.
+   */
+  async setClonedFrom(clonedFrom) {
+    if (!clonedFrom) {
+      return;
+    }
+    const promises = [];
+    for (const editor of clonedFrom.#allEditorsIterator) {
+      const serialized = editor.serialize(/* isForCopying = */ true);
+      if (!serialized) {
+        continue;
+      }
+      serialized.isCopy = false;
+      promises.push(
+        this.deserialize(serialized).then(deserialized => {
+          if (deserialized) {
+            this.addOrRebuild(deserialized);
+          }
+        })
+      );
+    }
+    await Promise.all(promises);
   }
 
   get isEmpty() {

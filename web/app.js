@@ -2186,11 +2186,6 @@ const PDFViewerApplication = {
     }
     eventBus._on("pagesedited", this.onPagesEdited.bind(this), opts);
     eventBus._on(
-      "beforepagesedited",
-      this.onBeforePagesEdited.bind(this),
-      opts
-    );
-    eventBus._on(
       "savepageseditedpdf",
       this.onSavePagesEditedPDF.bind(this),
       opts
@@ -2369,30 +2364,18 @@ const PDFViewerApplication = {
     await Promise.all([this.l10n?.destroy(), this.close()]);
   },
 
-  onBeforePagesEdited(data) {
-    this.pdfViewer.onBeforePagesEdited(data);
-  },
-
   onPagesEdited(data) {
     this.pdfViewer.onPagesEdited(data);
   },
 
-  async onSavePagesEditedPDF({
-    data: { includePages, excludePages, pageIndices },
-  }) {
+  async onSavePagesEditedPDF({ data: extractParams }) {
     if (typeof PDFJSDev !== "undefined" && PDFJSDev.test("TESTING")) {
       return;
     }
     if (!this.pdfDocument) {
       return;
     }
-    const pageInfo = {
-      document: null, // For now, no merge.
-      includePages,
-      excludePages,
-      pageIndices,
-    };
-    const modifiedPdfBytes = await this.pdfDocument.extractPages([pageInfo]);
+    const modifiedPdfBytes = await this.pdfDocument.extractPages(extractParams);
     if (!modifiedPdfBytes) {
       console.error(
         "Something wrong happened when saving the edited PDF.\nPlease file a bug."
