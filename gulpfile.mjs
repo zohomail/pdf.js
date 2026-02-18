@@ -731,6 +731,15 @@ function runTests(testsName, { bot = false, xfaOnly = false } = {}) {
     if (process.argv.includes("--headless")) {
       args.push("--headless");
     }
+    if (process.argv.includes("--coverage")) {
+      args.push("--coverage");
+    }
+    if (process.argv.includes("--coverage-output")) {
+      args.push(
+        "--coverage-output",
+        process.argv[process.argv.indexOf("--coverage-output") + 1]
+      );
+    }
 
     const testProcess = startNode(args, { cwd: TEST_DIR, stdio: "inherit" });
     testProcess.on("close", function (code) {
