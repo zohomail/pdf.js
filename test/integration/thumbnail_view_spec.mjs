@@ -1,8 +1,10 @@
 import {
   awaitPromise,
   closePages,
+  FSI,
   kbFocusNext,
   loadAndWait,
+  PDI,
 } from "./test_utils.mjs";
 
 function waitForThumbnailVisible(page, pageNum) {
@@ -313,6 +315,42 @@ describe("PDF Thumbnail View", () => {
           // Close menu with Escape
           await page.keyboard.press("Escape");
           await waitForMenu(page, "#viewsManagerStatusActionButton", false);
+        })
+      );
+    });
+  });
+
+  describe("Checkbox accessibility", () => {
+    let pages;
+
+    beforeEach(async () => {
+      pages = await loadAndWait(
+        "tracemonkey.pdf",
+        "#viewsManagerToggleButton",
+        null,
+        null,
+        { enableSplitMerge: true }
+      );
+    });
+
+    afterEach(async () => {
+      await closePages(pages);
+    });
+
+    it("should have accessible label on checkbox", async () => {
+      await Promise.all(
+        pages.map(async ([browserName, page]) => {
+          await page.click("#viewsManagerToggleButton");
+
+          await waitForThumbnailVisible(page, 1);
+
+          const ariaLabel = await page.$eval(
+            `.thumbnail[page-number="1"] input[type="checkbox"]`,
+            el => el.getAttribute("aria-label")
+          );
+          expect(ariaLabel)
+            .withContext(`In ${browserName}`)
+            .toBe(`Select page ${FSI}1${PDI}`);
         })
       );
     });
