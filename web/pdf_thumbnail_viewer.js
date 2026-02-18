@@ -848,34 +848,41 @@ class PDFThumbnailViewer {
       }
     });
     this.container.addEventListener("keydown", e => {
+      const { target } = e;
+      const isCheckbox =
+        target instanceof HTMLInputElement && target.type === "checkbox";
+
       switch (e.key) {
         case "ArrowLeft":
-          this.#goToNextItem(e.target, false, true);
+          this.#goToNextItem(target, false, true, isCheckbox);
           stopEvent(e);
           break;
         case "ArrowRight":
-          this.#goToNextItem(e.target, true, true);
+          this.#goToNextItem(target, true, true, isCheckbox);
           stopEvent(e);
           break;
         case "ArrowDown":
-          this.#goToNextItem(e.target, true, false);
+          this.#goToNextItem(target, true, false, isCheckbox);
           stopEvent(e);
           break;
         case "ArrowUp":
-          this.#goToNextItem(e.target, false, false);
+          this.#goToNextItem(target, false, false, isCheckbox);
           stopEvent(e);
           break;
         case "Home":
-          this._thumbnails[0].imageContainer.focus();
+          this.#focusThumbnailElement(this._thumbnails[0], isCheckbox);
           stopEvent(e);
           break;
         case "End":
-          this._thumbnails.at(-1).imageContainer.focus();
+          this.#focusThumbnailElement(this._thumbnails.at(-1), isCheckbox);
           stopEvent(e);
           break;
         case "Enter":
         case " ":
-          this.#goToPage(e);
+          if (!isCheckbox) {
+            this.#goToPage(e);
+          }
+          // For checkboxes, let the default behavior handle toggling
           break;
       }
     });
@@ -1049,12 +1056,28 @@ class PDFThumbnailViewer {
   }
 
   /**
+   * Focus either the checkbox or image of a thumbnail.
+   * @param {PDFThumbnailView} thumbnail
+   * @param {boolean} focusCheckbox - If true, focus checkbox; otherwise focus
+   *   image
+   */
+  #focusThumbnailElement(thumbnail, focusCheckbox) {
+    if (focusCheckbox && thumbnail.checkbox) {
+      thumbnail.checkbox.focus();
+    } else {
+      thumbnail.imageContainer.focus();
+    }
+  }
+
+  /**
    * Go to the next/previous menu item.
    * @param {HTMLElement} element
    * @param {boolean} forward
    * @param {boolean} horizontal
+   * @param {boolean} navigateCheckboxes - If true, focus checkboxes;
+   *   otherwise focus images
    */
-  #goToNextItem(element, forward, horizontal) {
+  #goToNextItem(element, forward, horizontal, navigateCheckboxes = false) {
     let currentPageNumber = parseInt(
       element.parentElement.getAttribute("page-number"),
       10
@@ -1097,7 +1120,7 @@ class PDFThumbnailViewer {
       }
     }
     if (nextThumbnail) {
-      nextThumbnail.imageContainer.focus();
+      this.#focusThumbnailElement(nextThumbnail, navigateCheckboxes);
     }
   }
 

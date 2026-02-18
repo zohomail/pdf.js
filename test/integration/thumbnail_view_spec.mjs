@@ -140,12 +140,6 @@ describe("PDF Thumbnail View", () => {
       await closePages(pages);
     });
 
-    async function isElementFocused(page, selector) {
-      await page.waitForSelector(selector, { visible: true });
-
-      return page.$eval(selector, el => el === document.activeElement);
-    }
-
     it("should navigate with the keyboard", async () => {
       await Promise.all(
         pages.map(async ([browserName, page]) => {
@@ -156,57 +150,40 @@ describe("PDF Thumbnail View", () => {
           await waitForThumbnailVisible(page, 3);
 
           await kbFocusNext(page);
-          expect(await isElementFocused(page, "#viewsManagerSelectorButton"))
-            .withContext(`In ${browserName}`)
-            .toBe(true);
+          await page.waitForSelector("#viewsManagerSelectorButton:focus", {
+            visible: true,
+          });
 
           await kbFocusNext(page);
-          expect(
-            await isElementFocused(page, "#viewsManagerStatusActionButton")
-          )
-            .withContext(`In ${browserName}`)
-            .toBe(true);
+          await page.waitForSelector("#viewsManagerStatusActionButton:focus", {
+            visible: true,
+          });
 
           await kbFocusNext(page);
-          expect(
-            await isElementFocused(
-              page,
-              `#thumbnailsView .thumbnailImageContainer[data-l10n-args='{"page":1}']`
-            )
-          )
-            .withContext(`In ${browserName}`)
-            .toBe(true);
+          await page.waitForSelector(
+            `#thumbnailsView .thumbnailImageContainer[data-l10n-args='{"page":1}']:focus`,
+            { visible: true }
+          );
 
           await page.keyboard.press("ArrowDown");
-          expect(
-            await isElementFocused(
-              page,
-              `#thumbnailsView .thumbnailImageContainer[data-l10n-args='{"page":2}']`
-            )
-          )
-            .withContext(`In ${browserName}`)
-            .toBe(true);
+          await page.waitForSelector(
+            `#thumbnailsView .thumbnailImageContainer[data-l10n-args='{"page":2}']:focus`,
+            { visible: true }
+          );
 
           await page.keyboard.press("ArrowUp");
-          expect(
-            await isElementFocused(
-              page,
-              `#thumbnailsView .thumbnailImageContainer[data-l10n-args='{"page":1}']`
-            )
-          )
-            .withContext(`In ${browserName}`)
-            .toBe(true);
+          await page.waitForSelector(
+            `#thumbnailsView .thumbnailImageContainer[data-l10n-args='{"page":1}']:focus`,
+            { visible: true }
+          );
 
           await page.keyboard.press("ArrowDown");
           await page.keyboard.press("ArrowDown");
-          expect(
-            await isElementFocused(
-              page,
-              `#thumbnailsView .thumbnailImageContainer[data-l10n-args='{"page":3}']`
-            )
-          )
-            .withContext(`In ${browserName}`)
-            .toBe(true);
+          await page.waitForSelector(
+            `#thumbnailsView .thumbnailImageContainer[data-l10n-args='{"page":3}']:focus`,
+            { visible: true }
+          );
+
           await page.keyboard.press("Enter");
           const currentPage = await page.$eval(
             "#pageNumber",
@@ -215,24 +192,16 @@ describe("PDF Thumbnail View", () => {
           expect(currentPage).withContext(`In ${browserName}`).toBe(3);
 
           await page.keyboard.press("End");
-          expect(
-            await isElementFocused(
-              page,
-              `#thumbnailsView .thumbnailImageContainer[data-l10n-args='{"page":14}']`
-            )
-          )
-            .withContext(`In ${browserName}`)
-            .toBe(true);
+          await page.waitForSelector(
+            `#thumbnailsView .thumbnailImageContainer[data-l10n-args='{"page":14}']:focus`,
+            { visible: true }
+          );
 
           await page.keyboard.press("Home");
-          expect(
-            await isElementFocused(
-              page,
-              `#thumbnailsView .thumbnailImageContainer[data-l10n-args='{"page":1}']`
-            )
-          )
-            .withContext(`In ${browserName}`)
-            .toBe(true);
+          await page.waitForSelector(
+            `#thumbnailsView .thumbnailImageContainer[data-l10n-args='{"page":1}']:focus`,
+            { visible: true }
+          );
         })
       );
     });
@@ -439,6 +408,89 @@ describe("PDF Thumbnail View", () => {
 
           // Wait for manage menu to be expanded
           await waitForMenu(page, "#viewsManagerStatusActionButton");
+        })
+      );
+    });
+  });
+
+  describe("Checkbox keyboard navigation", () => {
+    let pages;
+
+    beforeEach(async () => {
+      pages = await loadAndWait(
+        "tracemonkey.pdf",
+        "#viewsManagerToggleButton",
+        null,
+        null,
+        { enableSplitMerge: true }
+      );
+    });
+
+    afterEach(async () => {
+      await closePages(pages);
+    });
+
+    it("should focus checkboxes with Tab key", async () => {
+      await Promise.all(
+        pages.map(async ([browserName, page]) => {
+          await page.click("#viewsManagerToggleButton");
+
+          await waitForThumbnailVisible(page, 1);
+
+          // Focus the first thumbnail button
+          await kbFocusNext(page);
+          await kbFocusNext(page);
+          await kbFocusNext(page);
+
+          // Verify we're on the first thumbnail
+          await page.waitForSelector(
+            `#thumbnailsView .thumbnailImageContainer[data-l10n-args='{"page":1}']:focus`,
+            { visible: true }
+          );
+
+          // Tab to checkbox
+          await kbFocusNext(page);
+          await page.waitForSelector(
+            `.thumbnail[page-number="1"] input[type="checkbox"]:focus`,
+            { visible: true }
+          );
+        })
+      );
+    });
+
+    it("should navigate checkboxes with arrow keys", async () => {
+      await Promise.all(
+        pages.map(async ([browserName, page]) => {
+          await page.click("#viewsManagerToggleButton");
+
+          await waitForThumbnailVisible(page, 1);
+          await waitForThumbnailVisible(page, 2);
+
+          // Navigate to first checkbox
+          await kbFocusNext(page);
+          await kbFocusNext(page);
+          await kbFocusNext(page);
+          await kbFocusNext(page);
+
+          // Verify first checkbox is focused
+          await page.waitForSelector(
+            `.thumbnail[page-number="1"] input[type="checkbox"]:focus`,
+            { visible: true }
+          );
+
+          // Navigate to next checkbox with ArrowDown
+          await page.keyboard.press("ArrowDown");
+          await page.waitForSelector(
+            `.thumbnail[page-number="2"] input[type="checkbox"]:focus`,
+            { visible: true }
+          );
+
+          // Navigate back with ArrowUp
+          await page.keyboard.press("ArrowUp");
+          await page.waitForSelector(
+            `.thumbnail[page-number="1"] input[type="checkbox"]:focus`,
+            { visible: true }
+          );
         })
       );
     });
