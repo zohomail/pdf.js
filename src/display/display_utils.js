@@ -395,19 +395,14 @@ function getPdfFilenameFromUrl(url, defaultFilename = "document.pdf") {
   }
 
   if (newURL.searchParams.size > 0) {
-    const values = Array.from(newURL.searchParams.values()).reverse();
-    for (const value of values) {
-      if (pdfRegex.test(value)) {
-        // If any of the search parameters ends with ".pdf", return it.
-        return decode(value);
-      }
-    }
-    const keys = Array.from(newURL.searchParams.keys()).reverse();
-    for (const key of keys) {
-      if (pdfRegex.test(key)) {
-        // If any of the search parameter keys ends with ".pdf", return it.
-        return decode(key);
-      }
+    const getLast = iterator => [...iterator].findLast(v => pdfRegex.test(v));
+
+    // If any of the search parameters ends with ".pdf", return it.
+    const name =
+      getLast(newURL.searchParams.values()) ??
+      getLast(newURL.searchParams.keys());
+    if (name) {
+      return decode(name);
     }
   }
 
