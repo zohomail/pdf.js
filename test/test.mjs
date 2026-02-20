@@ -21,6 +21,9 @@ import {
   verifyManifestFiles,
 } from "./downloadutils.mjs";
 import fs from "fs";
+import istanbulCoverage from "istanbul-lib-coverage";
+import istanbulReportGenerator from "istanbul-reports";
+import libReport from "istanbul-lib-report";
 import os from "os";
 import path from "path";
 import puppeteer from "puppeteer";
@@ -28,6 +31,8 @@ import readline from "readline";
 import { translateFont } from "./font/ttxdriver.mjs";
 import { WebServer } from "./webserver.mjs";
 import yargs from "yargs";
+
+const __dirname = import.meta.dirname;
 
 function parseOptions() {
   const parsedArgs = yargs(process.argv)
@@ -116,6 +121,16 @@ function parseOptions() {
       default: false,
       describe: "Error if verifying the manifest files fails.",
       type: "boolean",
+    })
+    .option("coverage", {
+      default: false,
+      describe: "Enable code coverage collection.",
+      type: "boolean",
+    })
+    .option("coverageOutput", {
+      default: "build/coverage",
+      describe: "The directory where to store code coverage data.",
+      type: "string",
     })
     .option("testfilter", {
       alias: "t",
@@ -1057,6 +1072,7 @@ function startServer() {
     host,
     port: options.port,
     cacheExpirationTime: 3600,
+    coverageEnabled: global.coverageEnabled || false,
   });
   server.start();
 }
@@ -1069,17 +1085,79 @@ function getSession(browser) {
   return sessions.find(session => session.name === browser);
 }
 
+async function writeCoverageData(outputDirectory) {
+  try {
+    console.log("\n### Writing code coverage data");
+
+    // Merge coverage from all sessions
+    const mergedCoverage = istanbulCoverage.createCoverageMap();
+    for (const session of sessions) {
+      if (session.coverage) {
+        mergedCoverage.merge(
+          istanbulCoverage.createCoverageMap(session.coverage)
+        );
+      }
+    }
+
+    // create a context for report generation
+    const context = libReport.createContext({
+      dir: path.join(__dirname, "..", outputDirectory),
+      coverageMap: mergedCoverage,
+    });
+
+    const report = istanbulReportGenerator.create("lcovonly", {
+      projectRoot: path.join(__dirname, ".."),
+    });
+    report.execute(context);
+
+    console.log(`Total files covered: ${Object.keys(mergedCoverage).length}`);
+  } catch (err) {
+    console.error("Failed to write coverage data:", err);
+  }
+}
+
 async function closeSession(browser) {
   for (const session of sessions) {
     if (session.name !== browser) {
       continue;
     }
     if (session.browser !== undefined) {
+      // Collect coverage before closing (works with both Chrome and Firefox)
+      if (global.coverageEnabled) {
+        try {
+          const pages = await session.browser.pages();
+          if (pages.length > 0) {
+            const page = pages[0];
+
+            // Extract window.__coverage__ which is populated by
+            // babel-plugin-istanbul
+            const coverage = await page.evaluate(() => window.__coverage__);
+
+            if (coverage && Object.keys(coverage).length > 0) {
+              session.coverage = coverage;
+              console.log(
+                `Collected coverage from ${browser}: ${Object.keys(coverage).length} files`
+              );
+            }
+          }
+        } catch (err) {
+          console.warn(
+            `Failed to collect coverage for ${browser}:`,
+            err.message
+          );
+        }
+      }
+
       await session.browser.close();
     }
     session.closed = true;
     const allClosed = sessions.every(s => s.closed);
     if (allClosed) {
+      // Write coverage data if enabled
+      if (global.coverageEnabled) {
+        await writeCoverageData(global.coverageOutput);
+      }
+
       if (tempDir) {
         fs.rmSync(tempDir, { recursive: true, force: true });
       }
@@ -1111,6 +1189,15 @@ async function ensurePDFsDownloaded() {
 async function main() {
   if (options.statsFile) {
     stats = [];
+  }
+
+  if (options.coverage) {
+    global.coverageEnabled = true;
+    console.log("\n### Code coverage enabled for browser tests");
+    if (options.coverageOutput) {
+      global.coverageOutput = options.coverageOutput;
+      console.log(`### Code coverage output file: ${options.coverageOutput}`);
+    }
   }
 
   try {

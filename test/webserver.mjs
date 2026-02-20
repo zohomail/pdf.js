@@ -17,6 +17,7 @@
 // PLEASE NOTE: This code is intended for development purposes only and
 //              should NOT be used in production environments.
 
+import babel from "@babel/core";
 import fs from "fs";
 import fsPromises from "fs/promises";
 import http from "http";
@@ -43,7 +44,7 @@ const MIME_TYPES = {
 const DEFAULT_MIME_TYPE = "application/octet-stream";
 
 class WebServer {
-  constructor({ root, host, port, cacheExpirationTime }) {
+  constructor({ root, host, port, cacheExpirationTime, coverageEnabled }) {
     const cwdURL = pathToFileURL(process.cwd()) + "/";
     this.rootURL = new URL(`${root || "."}/`, cwdURL);
     this.host = host || "localhost";
@@ -52,6 +53,7 @@ class WebServer {
     this.verbose = false;
     this.cacheExpirationTime = cacheExpirationTime || 0;
     this.disableRangeRequests = false;
+    this.coverageEnabled = coverageEnabled || false;
     this.hooks = {
       GET: [crossOriginHandler, redirectHandler],
       POST: [],
@@ -190,7 +192,7 @@ class WebServer {
     if (this.verbose) {
       console.log(url);
     }
-    this.#serveFile(response, localURL, fileSize);
+    await this.#serveFile(response, localURL, fileSize, url);
   }
 
   async #serveDirectoryIndex(response, url, localUrl) {
@@ -288,7 +290,50 @@ class WebServer {
     response.end("</body></html>");
   }
 
-  #serveFile(response, fileURL, fileSize) {
+  async #serveFile(response, fileURL, fileSize, url) {
+    // Check if we should instrument this file for coverage
+    const shouldInstrument =
+      this.coverageEnabled &&
+      url &&
+      /\.m?js$/.test(fileURL.pathname) &&
+      (url.pathname.startsWith("/src/") || url.pathname.startsWith("/web/")) &&
+      !url.pathname.includes("/test/");
+
+    if (shouldInstrument) {
+      try {
+        // Read the file content
+        const content = await fsPromises.readFile(fileURL, "utf8");
+
+        // Transform with Babel and istanbul plugin
+        const result = babel.transformSync(content, {
+          filename: fileURL.pathname,
+          plugins: ["babel-plugin-istanbul"],
+          sourceMaps: false,
+        });
+
+        const instrumentedCode = result.code;
+        const instrumentedSize = Buffer.byteLength(instrumentedCode, "utf8");
+
+        // Serve the instrumented code
+        response.setHeader("Content-Type", "application/javascript");
+        response.setHeader("Content-Length", instrumentedSize);
+        if (this.cacheExpirationTime > 0) {
+          const expireTime = new Date();
+          expireTime.setSeconds(
+            expireTime.getSeconds() + this.cacheExpirationTime
+          );
+          response.setHeader("Expires", expireTime.toUTCString());
+        }
+        response.writeHead(200);
+        response.end(instrumentedCode, "utf8");
+        return;
+      } catch (error) {
+        console.error(`Failed to instrument ${fileURL.pathname}:`, error);
+        // Fall through to serve the original file
+      }
+    }
+
+    // Serve the file normally
     const stream = fs.createReadStream(fileURL, { flags: "rs" });
     stream.on("error", error => {
       response.writeHead(500);

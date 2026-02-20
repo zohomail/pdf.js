@@ -59,3 +59,16 @@ jobs:
 
       - name: Run font tests
         run: npx gulp fonttest --headless
+
+      - name: Run font tests with code coverage
+        run: npx gulp fonttest --headless --coverage --coverage-output build/coverage/font
+
+      - name: Upload results to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: true
+          files: ./build/coverage/font/lcov.info
+          flags: fonttest
+          name: codecov-umbrella
+          verbose: true
