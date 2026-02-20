@@ -105,14 +105,14 @@ class FontFinder {
     name = name.toLowerCase();
 
     const maybe = [];
-    for (const [family, pdfFont] of this.fonts.entries()) {
+    for (const [family, pdfFont] of this.fonts) {
       if (family.replaceAll(pattern, "").toLowerCase().startsWith(name)) {
         maybe.push(pdfFont);
       }
     }
 
     if (maybe.length === 0) {
-      for (const [, pdfFont] of this.fonts.entries()) {
+      for (const pdfFont of this.fonts.values()) {
         if (
           pdfFont.regular.name
             ?.replaceAll(pattern, "")
@@ -126,7 +126,7 @@ class FontFinder {
 
     if (maybe.length === 0) {
       name = name.replaceAll(/psmt|mt/gi, "");
-      for (const [family, pdfFont] of this.fonts.entries()) {
+      for (const [family, pdfFont] of this.fonts) {
         if (family.replaceAll(pattern, "").toLowerCase().startsWith(name)) {
           maybe.push(pdfFont);
         }
