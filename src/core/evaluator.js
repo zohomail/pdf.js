@@ -5042,21 +5042,31 @@ class StateManager {
 }
 
 class TextState {
-  constructor() {
-    this.ctm = new Float32Array(IDENTITY_MATRIX);
-    this.fontName = null;
-    this.fontSize = 0;
-    this.loadedName = null;
-    this.font = null;
-    this.fontMatrix = FONT_IDENTITY_MATRIX;
-    this.textMatrix = IDENTITY_MATRIX.slice();
-    this.textLineMatrix = IDENTITY_MATRIX.slice();
-    this.charSpacing = 0;
-    this.wordSpacing = 0;
-    this.leading = 0;
-    this.textHScale = 1;
-    this.textRise = 0;
-  }
+  ctm = new Float32Array(IDENTITY_MATRIX);
+
+  fontName = null;
+
+  fontSize = 0;
+
+  loadedName = null;
+
+  font = null;
+
+  fontMatrix = FONT_IDENTITY_MATRIX;
+
+  textMatrix = IDENTITY_MATRIX.slice();
+
+  textLineMatrix = IDENTITY_MATRIX.slice();
+
+  charSpacing = 0;
+
+  wordSpacing = 0;
+
+  leading = 0;
+
+  textHScale = 1;
+
+  textRise = 0;
 
   setTextMatrix(a, b, c, d, e, f) {
     const m = this.textMatrix;
@@ -5105,24 +5115,28 @@ class TextState {
 }
 
 class EvalState {
-  constructor() {
-    this.ctm = new Float32Array(IDENTITY_MATRIX);
-    this.font = null;
-    this.textRenderingMode = TextRenderingMode.FILL;
-    this._fillColorSpace = this._strokeColorSpace = ColorSpaceUtils.gray;
-    this.patternFillColorSpace = null;
-    this.patternStrokeColorSpace = null;
+  ctm = new Float32Array(IDENTITY_MATRIX);
 
-    // Path stuff.
-    this.currentPointX = this.currentPointY = 0;
-    this.pathMinMax = new Float32Array([
-      Infinity,
-      Infinity,
-      -Infinity,
-      -Infinity,
-    ]);
-    this.pathBuffer = [];
-  }
+  font = null;
+
+  textRenderingMode = TextRenderingMode.FILL;
+
+  _fillColorSpace = ColorSpaceUtils.gray;
+
+  _strokeColorSpace = ColorSpaceUtils.gray;
+
+  patternFillColorSpace = null;
+
+  patternStrokeColorSpace = null;
+
+  // Path stuff.
+  currentPointX = 0;
+
+  currentPointY = 0;
+
+  pathMinMax = new Float32Array([Infinity, Infinity, -Infinity, -Infinity]);
+
+  pathBuffer = [];
 
   get fillColorSpace() {
     return this._fillColorSpace;

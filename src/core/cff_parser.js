@@ -1051,9 +1051,7 @@ class CFFHeader {
 }
 
 class CFFStrings {
-  constructor() {
-    this.strings = [];
-  }
+  strings = [];
 
   get(index) {
     if (index >= 0 && index <= NUM_STANDARD_CFF_STRINGS - 1) {
@@ -1087,10 +1085,9 @@ class CFFStrings {
 }
 
 class CFFIndex {
-  constructor() {
-    this.objects = [];
-    this.length = 0;
-  }
+  objects = [];
+
+  length = 0;
 
   add(data) {
     this.length += data.length;
@@ -1323,9 +1320,7 @@ class CFFFDSelect {
 // Helper class to keep track of where an offset is within the data and helps
 // filling in that offset once it's known.
 class CFFOffsetTracker {
-  constructor() {
-    this.offsets = Object.create(null);
-  }
+  offsets = Object.create(null);
 
   isTracking(key) {
     return key in this.offsets;
