@@ -686,6 +686,40 @@ describe("Reorganize Pages View", () => {
         })
       );
     });
+
+    it("should update the page count in the toolbar after deletion (bug 2018125)", async () => {
+      await Promise.all(
+        pages.map(async ([browserName, page]) => {
+          await waitForThumbnailVisible(page, 1);
+          await page.waitForSelector("#viewsManagerStatusActionButton", {
+            visible: true,
+          });
+
+          const initialCount = await page.$eval("#pageNumber", el => el.max);
+          expect(parseInt(initialCount, 10))
+            .withContext(`In ${browserName}`)
+            .toBe(17);
+
+          await waitAndClick(
+            page,
+            `.thumbnail:has(${getThumbnailSelector(1)}) input`
+          );
+          await waitAndClick(
+            page,
+            `.thumbnail:has(${getThumbnailSelector(3)}) input`
+          );
+
+          const handlePagesEdited = await waitForPagesEdited(page);
+          await waitAndClick(page, "#viewsManagerStatusActionButton");
+          await waitAndClick(page, "#viewsManagerStatusActionDelete");
+          await awaitPromise(handlePagesEdited);
+
+          await page.waitForFunction(
+            () => document.querySelector("#pageNumber").max === "15"
+          );
+        })
+      );
+    });
   });
 
   describe("Cut and paste some pages", () => {
