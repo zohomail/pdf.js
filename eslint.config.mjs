@@ -116,9 +116,13 @@ export default [
             "pdfjs-lib",
             "pdfjs-web",
             "web",
+            "@csstools/postcss-light-dark-function",
             "fluent-bundle",
             "fluent-dom",
+            "postcss-dir-pseudo-class",
+            "postcss-nesting",
             "postcss-values-parser",
+            "stylelint",
             // See https://github.com/firebase/firebase-admin-node/discussions/1359.
             "eslint-plugin-perfectionist",
           ],
