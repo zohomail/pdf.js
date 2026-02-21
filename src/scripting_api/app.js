@@ -52,18 +52,14 @@ class App extends PDFObject {
     );
 
     this._timeoutIds = new WeakMap();
-    if (typeof FinalizationRegistry !== "undefined") {
-      // About setTimeOut/setInterval return values (specs):
-      //   The return value of this method must be held in a
-      //   JavaScript variable.
-      //   Otherwise, the timeout object is subject to garbage-collection,
-      //   which would cause the clock to stop.
-      this._timeoutIdsRegistry = new FinalizationRegistry(
-        this._cleanTimeout.bind(this)
-      );
-    } else {
-      this._timeoutIdsRegistry = null;
-    }
+    // About setTimeOut/setInterval return values (specs):
+    //   The return value of this method must be held in a
+    //   JavaScript variable.
+    //   Otherwise, the timeout object is subject to garbage-collection,
+    //   which would cause the clock to stop.
+    this._timeoutIdsRegistry = new FinalizationRegistry(
+      this._cleanTimeout.bind(this)
+    );
 
     this._timeoutCallbackIds = new Map();
     this._timeoutCallbackId = USERACTIVATION_CALLBACKID + 1;
@@ -113,12 +109,12 @@ class App extends PDFObject {
     const timeout = Object.create(null);
     const id = { callbackId, interval };
     this._timeoutIds.set(timeout, id);
-    this._timeoutIdsRegistry?.register(timeout, id);
+    this._timeoutIdsRegistry.register(timeout, id);
     return timeout;
   }
 
   _unregisterTimeout(timeout) {
-    this._timeoutIdsRegistry?.unregister(timeout);
+    this._timeoutIdsRegistry.unregister(timeout);
 
     const data = this._timeoutIds.get(timeout);
     if (!data) {
