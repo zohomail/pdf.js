@@ -152,13 +152,10 @@ class App extends PDFObject {
   }
 
   static _getLanguage(language) {
-    const [main, sub] = language.toLowerCase().split(/[-_]/);
+    const [main, sub] = language.toLowerCase().split(/[-_]/, 2);
     switch (main) {
       case "zh":
-        if (sub === "cn" || sub === "sg") {
-          return "CHS";
-        }
-        return "CHT";
+        return sub === "cn" || sub === "sg" ? "CHS" : "CHT";
       case "da":
         return "DAN";
       case "de":
@@ -178,10 +175,7 @@ class App extends PDFObject {
       case "no":
         return "NOR";
       case "pt":
-        if (sub === "br") {
-          return "PTB";
-        }
-        return "ENU";
+        return sub === "br" ? "PTB" : "ENU";
       case "fi":
         return "SUO";
       case "SV":
@@ -249,13 +243,10 @@ class App extends PDFObject {
   }
 
   get fs() {
-    if (this._fs === null) {
-      this._fs = new Proxy(
-        new FullScreen({ send: this._send }),
-        this._proxyHandler
-      );
-    }
-    return this._fs;
+    return (this._fs ??= new Proxy(
+      new FullScreen({ send: this._send }),
+      this._proxyHandler
+    ));
   }
 
   set fs(_) {
@@ -356,13 +347,10 @@ class App extends PDFObject {
   }
 
   get thermometer() {
-    if (this._thermometer === null) {
-      this._thermometer = new Proxy(
-        new Thermometer({ send: this._send }),
-        this._proxyHandler
-      );
-    }
-    return this._thermometer;
+    return (this._thermometer ??= new Proxy(
+      new Thermometer({ send: this._send }),
+      this._proxyHandler
+    ));
   }
 
   set thermometer(_) {
