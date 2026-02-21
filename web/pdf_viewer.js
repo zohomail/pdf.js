@@ -2270,10 +2270,7 @@ class PDFViewer {
     this.update();
   }
 
-  /**
-   * @private
-   */
-  _getPageAdvance(currentPageNumber, previous = false) {
+  #getPageAdvance(currentPageNumber, previous = false) {
     switch (this._scrollMode) {
       case ScrollMode.WRAPPED: {
         const { views } = this._getVisiblePages(),
@@ -2284,11 +2281,7 @@ class PDFViewer {
           if (percent === 0 || widthPercent < 100) {
             continue;
           }
-          let yArray = pageLayout.get(y);
-          if (!yArray) {
-            pageLayout.set(y, (yArray ||= []));
-          }
-          yArray.push(id);
+          pageLayout.getOrInsert(y, []).push(id);
         }
         // Find the row of the current page.
         for (const yArray of pageLayout.values()) {
@@ -2379,7 +2372,7 @@ class PDFViewer {
       return false;
     }
     const advance =
-      this._getPageAdvance(currentPageNumber, /* previous = */ false) || 1;
+      this.#getPageAdvance(currentPageNumber, /* previous = */ false) || 1;
 
     this.currentPageNumber = Math.min(currentPageNumber + advance, pagesCount);
     return true;
@@ -2396,7 +2389,7 @@ class PDFViewer {
       return false;
     }
     const advance =
-      this._getPageAdvance(currentPageNumber, /* previous = */ true) || 1;
+      this.#getPageAdvance(currentPageNumber, /* previous = */ true) || 1;
 
     this.currentPageNumber = Math.max(currentPageNumber - advance, 1);
     return true;
