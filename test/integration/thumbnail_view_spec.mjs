@@ -413,6 +413,46 @@ describe("PDF Thumbnail View", () => {
     });
   });
 
+  describe("Views manager status visibility (bug 2016656)", () => {
+    let pages;
+
+    beforeEach(async () => {
+      pages = await loadAndWait(
+        "page_with_number_and_link.pdf",
+        "#viewsManagerToggleButton",
+        null,
+        null,
+        { enableSplitMerge: true }
+      );
+    });
+
+    afterEach(async () => {
+      await closePages(pages);
+    });
+
+    it("should show the manage button in thumbnail view and hide it in outline view", async () => {
+      await Promise.all(
+        pages.map(async ([browserName, page]) => {
+          await page.click("#viewsManagerToggleButton");
+          await waitForThumbnailVisible(page, 1);
+
+          // The status bar (Select pages + Manage button) must be visible in
+          // thumbnail view.
+          await page.waitForSelector("#viewsManagerStatus", { visible: true });
+
+          // Switch to outline view.
+          await page.click("#viewsManagerSelectorButton");
+          await page.waitForSelector("#outlinesViewMenu", { visible: true });
+          await page.click("#outlinesViewMenu");
+          await page.waitForSelector("#outlinesView", { visible: true });
+
+          // The status bar must no longer be visible in outline view.
+          await page.waitForSelector("#viewsManagerStatus", { hidden: true });
+        })
+      );
+    });
+  });
+
   describe("Checkbox keyboard navigation", () => {
     let pages;
 

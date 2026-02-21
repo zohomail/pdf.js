@@ -133,6 +133,7 @@ function getViewerConfiguration() {
       viewsManagerHeaderLabel: document.getElementById(
         "viewsManagerHeaderLabel"
       ),
+      viewsManagerStatus: document.getElementById("viewsManagerStatus"),
       manageMenu: {
         button: document.getElementById("viewsManagerStatusActionButton"),
         menu: document.getElementById("viewsManagerStatusActionOptions"),

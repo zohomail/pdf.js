@@ -90,6 +90,7 @@ class ViewsManager extends Sidebar {
       viewsManagerSelectorButton,
       viewsManagerSelectorOptions,
       viewsManagerHeaderLabel,
+      viewsManagerStatus,
     },
     eventBus,
     l10n,
@@ -132,6 +133,7 @@ class ViewsManager extends Sidebar {
 
     this.viewsManagerCurrentOutlineButton = viewsManagerCurrentOutlineButton;
     this.viewsManagerHeaderLabel = viewsManagerHeaderLabel;
+    this.viewsManagerStatus = viewsManagerStatus;
 
     this.eventBus = eventBus;
 
@@ -245,6 +247,7 @@ class ViewsManager extends Sidebar {
         return;
     }
 
+    this.viewsManagerStatus.hidden = view !== SidebarView.THUMBS;
     this.viewsManagerCurrentOutlineButton.hidden = view !== SidebarView.OUTLINE;
     this.viewsManagerHeaderLabel.setAttribute(
       "data-l10n-id",
