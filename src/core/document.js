@@ -1892,10 +1892,7 @@ class PDFDocument {
       orphanFields.put(fieldRef, parentRef);
     }
 
-    if (!promises.has(name)) {
-      promises.set(name, []);
-    }
-    promises.get(name).push(
+    promises.getOrInsert(name, []).push(
       AnnotationFactory.create(
         xref,
         fieldRef,
