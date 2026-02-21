@@ -450,12 +450,7 @@ class StructTreeRoot {
     for (const element of elements) {
       if (element.structTreeParentId) {
         const id = parseInt(element.structTreeParentId.split("_mc")[1], 10);
-        let elems = idToElements.get(id);
-        if (!elems) {
-          elems = [];
-          idToElements.set(id, elems);
-        }
-        elems.push(element);
+        idToElements.getOrInsert(id, []).push(element);
       }
     }
 
