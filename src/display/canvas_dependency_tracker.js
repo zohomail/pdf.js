@@ -50,17 +50,11 @@ class BBoxReader {
   }
 }
 
-const ensureDebugMetadata = (map, key) => {
-  if (!map) {
-    return undefined;
-  }
-  let value = map.get(key);
-  if (!value) {
-    value = { dependencies: new Set(), isRenderingOperation: false };
-    map.set(key, value);
-  }
-  return value;
-};
+const ensureDebugMetadata = (map, key) =>
+  map?.getOrInsertComputed(key, () => ({
+    dependencies: new Set(),
+    isRenderingOperation: false,
+  }));
 
 /**
  * @typedef {"lineWidth" | "lineCap" | "lineJoin" | "miterLimit" | "dash" |
