@@ -1502,12 +1502,9 @@ class PDFPageProxy {
     optionalContentConfigPromise ||=
       this._transport.getOptionalContentConfig(renderingIntent);
 
-    let intentState = this._intentStates.get(cacheKey);
-    if (!intentState) {
-      intentState = Object.create(null);
-      this._intentStates.set(cacheKey, intentState);
-    }
-
+    const intentState = this._intentStates.getOrInsertComputed(cacheKey, () =>
+      Object.create(null)
+    );
     // Ensure that a pending `streamReader` cancel timeout is always aborted.
     if (intentState.streamReaderCancelTimeout) {
       clearTimeout(intentState.streamReaderCancelTimeout);
@@ -1676,11 +1673,10 @@ class PDFPageProxy {
       isEditing,
       /* isOpList = */ true
     );
-    let intentState = this._intentStates.get(intentArgs.cacheKey);
-    if (!intentState) {
-      intentState = Object.create(null);
-      this._intentStates.set(intentArgs.cacheKey, intentState);
-    }
+    const intentState = this._intentStates.getOrInsertComputed(
+      intentArgs.cacheKey,
+      () => Object.create(null)
+    );
     let opListTask;
 
     if (!intentState.opListReadCapability) {
@@ -2516,14 +2512,9 @@ class WorkerTransport {
   }
 
   #cacheSimpleMethod(name, data = null) {
-    const cachedPromise = this.#methodPromises.get(name);
-    if (cachedPromise) {
-      return cachedPromise;
-    }
-    const promise = this.messageHandler.sendWithPromise(name, data);
-
-    this.#methodPromises.set(name, promise);
-    return promise;
+    return this.#methodPromises.getOrInsertComputed(name, () =>
+      this.messageHandler.sendWithPromise(name, data)
+    );
   }
 
   #onProgress({ loaded, total }) {
@@ -3135,22 +3126,17 @@ class WorkerTransport {
   }
 
   getMetadata() {
-    const name = "GetMetadata",
-      cachedPromise = this.#methodPromises.get(name);
-    if (cachedPromise) {
-      return cachedPromise;
-    }
-    const promise = this.messageHandler
-      .sendWithPromise(name, null)
-      .then(results => ({
+    const name = "GetMetadata";
+
+    return this.#methodPromises.getOrInsertComputed(name, () =>
+      this.messageHandler.sendWithPromise(name, null).then(results => ({
         info: results[0],
         metadata: results[1] ? new Metadata(results[1]) : null,
         contentDispositionFilename: this.#fullReader?.filename ?? null,
         contentLength: this.#fullReader?.contentLength ?? null,
         hasStructTree: results[2],
-      }));
-    this.#methodPromises.set(name, promise);
-    return promise;
+      }))
+    );
   }
 
   getMarkInfo() {
