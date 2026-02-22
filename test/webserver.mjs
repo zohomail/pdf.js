@@ -306,7 +306,15 @@ class WebServer {
 
         // Transform with Babel and istanbul plugin
         const result = babel.transformSync(content, {
-          filename: fileURL.pathname,
+          // On Windows, the file URL starts with a slash (e.g.
+          // /C:/path/to/file.js).
+          // This leading slash makes the file path invalid and causes the
+          // instrumentation to fail, so we need to remove it before passing the
+          // path.
+          filename:
+            process.platform === "win32"
+              ? fileURL.pathname.substring(1)
+              : fileURL.pathname,
           plugins: ["babel-plugin-istanbul"],
           sourceMaps: false,
         });
