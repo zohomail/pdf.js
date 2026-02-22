@@ -3877,12 +3877,7 @@ class AnnotationLayer {
         this.#elements.push(element);
 
         if (data.popupRef) {
-          const elements = popupToElements.get(data.popupRef);
-          if (!elements) {
-            popupToElements.set(data.popupRef, [element]);
-          } else {
-            elements.push(element);
-          }
+          popupToElements.getOrInsert(data.popupRef, []).push(element);
         }
       }
 

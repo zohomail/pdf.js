@@ -989,11 +989,10 @@ class CanvasGraphics {
           : [currentTransform.slice(0, 4), fillColor]
       );
 
-      cache = this._cachedBitmapsMap.get(mainKey);
-      if (!cache) {
-        cache = new Map();
-        this._cachedBitmapsMap.set(mainKey, cache);
-      }
+      cache = this._cachedBitmapsMap.getOrInsertComputed(
+        mainKey,
+        () => new Map()
+      );
       const cachedImage = cache.get(cacheKey);
       if (cachedImage && !isPatternFill) {
         const offsetX = Math.round(
