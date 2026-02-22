@@ -260,13 +260,8 @@ class AnnotationStorage {
         if (key === "type") {
           continue;
         }
-        let counters = map.get(key);
-        if (!counters) {
-          counters = new Map();
-          map.set(key, counters);
-        }
-        const count = counters.get(val) ?? 0;
-        counters.set(val, count + 1);
+        const counters = map.getOrInsertComputed(key, () => new Map());
+        counters.set(val, (counters.get(val) ?? 0) + 1);
       }
     }
     if (numberOfDeletedComments > 0 || numberOfEditedComments > 0) {
