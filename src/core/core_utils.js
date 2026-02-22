@@ -669,12 +669,7 @@ function getNewAnnotationsMap(annotationStorage) {
     if (!key.startsWith(AnnotationEditorPrefix)) {
       continue;
     }
-    let annotations = newAnnotationsByPage.get(value.pageIndex);
-    if (!annotations) {
-      annotations = [];
-      newAnnotationsByPage.set(value.pageIndex, annotations);
-    }
-    annotations.push(value);
+    newAnnotationsByPage.getOrInsert(value.pageIndex, []).push(value);
   }
   return newAnnotationsByPage.size > 0 ? newAnnotationsByPage : null;
 }
