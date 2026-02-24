@@ -1,0 +1,33 @@
+{
+  "name": "@zmc/pdfjs-dist",
+  "version": "4.9.0",
+  "main": "build/pdf.mjs",
+  "types": "types/src/pdf.d.ts",
+  "description": "Enhanced version with additioanl exports from generic build of Mozilla's PDF.js library.",
+  "keywords": [
+    "zohomail",
+    "pdf",
+    "pdf.js"
+  ],
+  "homepage": "https://mozilla.github.io/pdf.js/",
+  "bugs": "https://github.com/zohomail/pdf.js/issues",
+  "license": "Apache-2.0",
+  "optionalDependencies": {
+    "@napi-rs/canvas": "^0.1.62"
+  },
+  "browser": {
+    "canvas": false,
+    "fs": false,
+    "http": false,
+    "https": false,
+    "url": false
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zohomail/pdf.js.git"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {}
+}

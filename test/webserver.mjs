@@ -17,6 +17,7 @@
 // PLEASE NOTE: This code is intended for development purposes only and
 //              should NOT be used in production environments.
 
+import babel from "@babel/core";
 import fs from "fs";
 import fsPromises from "fs/promises";
 import http from "http";
@@ -38,11 +39,12 @@ const MIME_TYPES = {
   ".log": "text/plain",
   ".bcmap": "application/octet-stream",
   ".ftl": "text/plain",
+  ".wasm": "application/wasm",
 };
 const DEFAULT_MIME_TYPE = "application/octet-stream";
 
 class WebServer {
-  constructor({ root, host, port, cacheExpirationTime }) {
+  constructor({ root, host, port, cacheExpirationTime, coverageEnabled }) {
     const cwdURL = pathToFileURL(process.cwd()) + "/";
     this.rootURL = new URL(`${root || "."}/`, cwdURL);
     this.host = host || "localhost";
@@ -51,8 +53,9 @@ class WebServer {
     this.verbose = false;
     this.cacheExpirationTime = cacheExpirationTime || 0;
     this.disableRangeRequests = false;
+    this.coverageEnabled = coverageEnabled || false;
     this.hooks = {
-      GET: [crossOriginHandler],
+      GET: [crossOriginHandler, redirectHandler],
       POST: [],
     };
   }
@@ -177,6 +180,7 @@ class WebServer {
       this.#serveFileRange(
         response,
         localURL,
+        url.searchParams,
         fileSize,
         start,
         isNaN(end) ? fileSize : end + 1
@@ -188,7 +192,7 @@ class WebServer {
     if (this.verbose) {
       console.log(url);
     }
-    this.#serveFile(response, localURL, fileSize);
+    await this.#serveFile(response, localURL, fileSize, url);
   }
 
   async #serveDirectoryIndex(response, url, localUrl) {
@@ -286,7 +290,58 @@ class WebServer {
     response.end("</body></html>");
   }
 
-  #serveFile(response, fileURL, fileSize) {
+  async #serveFile(response, fileURL, fileSize, url) {
+    // Check if we should instrument this file for coverage
+    const shouldInstrument =
+      this.coverageEnabled &&
+      url &&
+      /\.m?js$/.test(fileURL.pathname) &&
+      (url.pathname.startsWith("/src/") || url.pathname.startsWith("/web/")) &&
+      !url.pathname.includes("/test/");
+
+    if (shouldInstrument) {
+      try {
+        // Read the file content
+        const content = await fsPromises.readFile(fileURL, "utf8");
+
+        // Transform with Babel and istanbul plugin
+        const result = babel.transformSync(content, {
+          // On Windows, the file URL starts with a slash (e.g.
+          // /C:/path/to/file.js).
+          // This leading slash makes the file path invalid and causes the
+          // instrumentation to fail, so we need to remove it before passing the
+          // path.
+          filename:
+            process.platform === "win32"
+              ? fileURL.pathname.substring(1)
+              : fileURL.pathname,
+          plugins: ["babel-plugin-istanbul"],
+          sourceMaps: false,
+        });
+
+        const instrumentedCode = result.code;
+        const instrumentedSize = Buffer.byteLength(instrumentedCode, "utf8");
+
+        // Serve the instrumented code
+        response.setHeader("Content-Type", "application/javascript");
+        response.setHeader("Content-Length", instrumentedSize);
+        if (this.cacheExpirationTime > 0) {
+          const expireTime = new Date();
+          expireTime.setSeconds(
+            expireTime.getSeconds() + this.cacheExpirationTime
+          );
+          response.setHeader("Expires", expireTime.toUTCString());
+        }
+        response.writeHead(200);
+        response.end(instrumentedCode, "utf8");
+        return;
+      } catch (error) {
+        console.error(`Failed to instrument ${fileURL.pathname}:`, error);
+        // Fall through to serve the original file
+      }
+    }
+
+    // Serve the file normally
     const stream = fs.createReadStream(fileURL, { flags: "rs" });
     stream.on("error", error => {
       response.writeHead(500);
@@ -307,7 +362,12 @@ class WebServer {
     stream.pipe(response);
   }
 
-  #serveFileRange(response, fileURL, fileSize, start, end) {
+  #serveFileRange(response, fileURL, searchParams, fileSize, start, end) {
+    if (end > fileSize || start > end) {
+      response.writeHead(416);
+      response.end();
+      return;
+    }
     const stream = fs.createReadStream(fileURL, {
       flags: "rs",
       start,
@@ -325,6 +385,16 @@ class WebServer {
       "Content-Range",
       `bytes ${start}-${end - 1}/${fileSize}`
     );
+
+    // Support test in `test/unit/network_spec.js`.
+    switch (searchParams.get("test-network-break-ranges")) {
+      case "missing":
+        response.removeHeader("Content-Range");
+        break;
+      case "invalid":
+        response.setHeader("Content-Range", "bytes abc-def/qwerty");
+        break;
+    }
     response.writeHead(206);
     stream.pipe(response);
   }
@@ -336,18 +406,65 @@ class WebServer {
 }
 
 // This supports the "Cross-origin" test in test/unit/api_spec.js
-// It is here instead of test.js so that when the test will still complete as
+// and "Redirects" in test/unit/network_spec.js and
+// test/unit/fetch_stream_spec.js via test/unit/common_pdfstream_tests.js.
+// It is here instead of test.mjs so that when the test will still complete as
 // expected if the user does "gulp server" and then visits
 // http://localhost:8888/test/unit/unit_test.html?spec=Cross-origin
 function crossOriginHandler(url, request, response) {
   if (url.pathname === "/test/pdfs/basicapi.pdf") {
-    if (url.searchParams.get("cors") === "withCredentials") {
-      response.setHeader("Access-Control-Allow-Origin", request.headers.origin);
-      response.setHeader("Access-Control-Allow-Credentials", "true");
-    } else if (url.searchParams.get("cors") === "withoutCredentials") {
-      response.setHeader("Access-Control-Allow-Origin", request.headers.origin);
+    if (!url.searchParams.has("cors") || !request.headers.origin) {
+      return;
     }
+    response.setHeader("Access-Control-Allow-Origin", request.headers.origin);
+    if (url.searchParams.get("cors") === "withCredentials") {
+      response.setHeader("Access-Control-Allow-Credentials", "true");
+    } // withoutCredentials does not include Access-Control-Allow-Credentials.
+    response.setHeader(
+      "Access-Control-Expose-Headers",
+      "Accept-Ranges,Content-Range"
+    );
+    response.setHeader("Vary", "Origin");
   }
+}
+
+// This supports the "Redirects" test in test/unit/network_spec.js and
+// test/unit/fetch_stream_spec.js via test/unit/common_pdfstream_tests.js.
+// It is here instead of test.mjs so that when the test will still complete as
+// expected if the user does "gulp server" and then visits
+// http://localhost:8888/test/unit/unit_test.html?spec=Redirects
+function redirectHandler(url, request, response) {
+  const redirectToHost = url.searchParams.get("redirectToHost");
+  if (redirectToHost) {
+    // Chrome may serve byte range requests directly from the cache, potentially
+    // from a full request or a different range, without involving the server.
+    // To prevent this from happening, make sure that the response is never
+    // cached, so that Range requests are never served from the browser cache.
+    response.setHeader("Cache-Control", "no-store,max-age=0");
+
+    if (url.searchParams.get("redirectIfRange") && !request.headers.range) {
+      return false;
+    }
+    try {
+      const newURL = new URL(url);
+      newURL.hostname = redirectToHost;
+      // Delete test-only query parameters to avoid infinite redirects.
+      newURL.searchParams.delete("redirectToHost");
+      newURL.searchParams.delete("redirectIfRange");
+      if (newURL.hostname !== redirectToHost) {
+        throw new Error(`Invalid hostname: ${redirectToHost}`);
+      }
+      response.setHeader("Location", newURL.href);
+    } catch {
+      response.writeHead(500);
+      response.end();
+      return true;
+    }
+    response.writeHead(302);
+    response.end();
+    return true;
+  }
+  return false;
 }
 
 export { WebServer };

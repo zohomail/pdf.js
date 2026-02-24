@@ -24,7 +24,6 @@ import {
   isValidRotation,
   parseQueryString,
   ProgressBar,
-  RenderingStates,
   scrollIntoView,
   ScrollMode,
   SpreadMode,
@@ -42,6 +41,7 @@ import { PDFSinglePageViewer } from "./pdf_single_page_viewer.js";
 import { PDFThumbnailView } from "./pdf_thumbnail_view.js";
 import { PDFThumbnailViewer } from "./pdf_thumbnail_viewer.js";
 import { PDFViewer } from "./pdf_viewer.js";
+import { RenderingStates } from "./renderable_view.js";
 import { StructTreeLayerBuilder } from "./struct_tree_layer_builder.js";
 import { TextLayerBuilder } from "./text_layer_builder.js";
 import { XfaLayerBuilder } from "./xfa_layer_builder.js";
@@ -52,6 +52,38 @@ const pdfjsVersion =
 /* eslint-disable-next-line no-unused-vars */
 const pdfjsBuild =
   typeof PDFJSDev !== "undefined" ? PDFJSDev.eval("BUNDLE_BUILD") : void 0;
+
+export {
+  AnnotationLayerBuilder,
+  DownloadManager,
+  EventBus,
+  FindState,
+  GenericL10n,
+  getVisibleElements,
+  getXfaHtmlForPrinting,
+  isValidRotation,
+  LinkTarget,
+  parseQueryString,
+  PDFFindController,
+  PDFHistory,
+  PDFLinkService,
+  PDFPageView,
+  PDFScriptingManager,
+  PDFSinglePageViewer,
+  PDFThumbnailView,
+  PDFThumbnailViewer,
+  PDFViewer,
+  ProgressBar,
+  RenderingStates,
+  scrollIntoView,
+  ScrollMode,
+  SimpleLinkService,
+  SpreadMode,
+  StructTreeLayerBuilder,
+  TextLayerBuilder,
+  watchScroll,
+  XfaLayerBuilder,
+};
 
 export {
   AnnotationLayerBuilder,

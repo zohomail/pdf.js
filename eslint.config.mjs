@@ -31,14 +31,18 @@ export default [
       "**/docs/",
       "**/node_modules/",
       "external/bcmaps/",
+      "external/brotli/",
       "external/builder/fixtures/",
       "external/builder/fixtures_babel/",
-      "external/quickjs/",
       "external/openjpeg/",
+      "external/qcms/",
+      "external/jbig2/",
+      "external/quickjs/",
       "test/stats/results/",
       "test/tmp/",
       "test/pdfs/",
       "web/locale/",
+      "web/wasm/",
       "**/*~/",
     ],
   },
@@ -74,7 +78,7 @@ export default [
       globals: {
         ...globals.worker,
         PDFJSDev: "readonly",
-        __non_webpack_import__: "readonly",
+        __raw_import__: "readonly",
       },
 
       ecmaVersion: 2025,
@@ -91,6 +95,17 @@ export default [
       "import/no-empty-named-blocks": "error",
       "import/no-commonjs": "error",
       "import/no-mutable-exports": "error",
+      "import/no-restricted-paths": [
+        "error",
+        {
+          zones: [
+            {
+              target: "./web",
+              from: "./src",
+            },
+          ],
+        },
+      ],
       "import/no-self-import": "error",
       "import/no-unresolved": [
         "error",
@@ -101,8 +116,15 @@ export default [
             "pdfjs-lib",
             "pdfjs-web",
             "web",
+            "@csstools/postcss-light-dark-function",
             "fluent-bundle",
             "fluent-dom",
+            "postcss-dir-pseudo-class",
+            "postcss-nesting",
+            "postcss-values-parser",
+            "stylelint",
+            // See https://github.com/firebase/firebase-admin-node/discussions/1359.
+            "eslint-plugin-perfectionist",
           ],
         },
       ],
@@ -111,12 +133,17 @@ export default [
       "perfectionist/sort-exports": "error",
       "perfectionist/sort-named-exports": "error",
       "unicorn/no-abusive-eslint-disable": "error",
-      "unicorn/no-array-push-push": "error",
-      "unicorn/no-instanceof-array": "error",
+      "unicorn/no-array-reduce": ["error", { allowSimpleOperations: true }],
+      "unicorn/no-console-spaces": "error",
+      "unicorn/no-instanceof-builtins": "error",
       "unicorn/no-invalid-remove-event-listener": "error",
       "unicorn/no-new-buffer": "error",
       "unicorn/no-single-promise-in-promise-methods": "error",
       "unicorn/no-typeof-undefined": ["error", { checkGlobalVariables: false }],
+      "unicorn/no-unnecessary-array-flat-depth": "error",
+      "unicorn/no-unnecessary-array-splice-count": "error",
+      "unicorn/no-unnecessary-slice-end": "error",
+      "unicorn/no-useless-collection-argument": "error",
       "unicorn/no-useless-promise-resolve-reject": "error",
       "unicorn/no-useless-spread": "error",
       "unicorn/prefer-array-find": "error",
@@ -125,9 +152,12 @@ export default [
       "unicorn/prefer-array-index-of": "error",
       "unicorn/prefer-array-some": "error",
       "unicorn/prefer-at": "error",
+      "unicorn/prefer-class-fields": "error",
+      "unicorn/prefer-classlist-toggle": "error",
       "unicorn/prefer-date-now": "error",
       "unicorn/prefer-dom-node-append": "error",
       "unicorn/prefer-dom-node-remove": "error",
+      "unicorn/prefer-import-meta-properties": "error",
       "unicorn/prefer-includes": "error",
       "unicorn/prefer-logical-operator-over-ternary": "error",
       "unicorn/prefer-modern-dom-apis": "error",
@@ -135,6 +165,7 @@ export default [
       "unicorn/prefer-negative-index": "error",
       "unicorn/prefer-optional-catch-binding": "error",
       "unicorn/prefer-regexp-test": "error",
+      "unicorn/prefer-single-call": "error",
       "unicorn/prefer-string-replace-all": "error",
       "unicorn/prefer-string-starts-ends-with": "error",
       "unicorn/prefer-ternary": ["error", "only-single-line"],
@@ -287,8 +318,23 @@ export default [
           message: "Use `Name.get()` rather than `new Name()`.",
         },
         {
+          selector: "NewExpression[callee.name='ObjectLoader']",
+          message:
+            "Use `ObjectLoader.load()` rather than `new ObjectLoader()`.",
+        },
+        {
           selector: "NewExpression[callee.name='Ref']",
           message: "Use `Ref.get()` rather than `new Ref()`.",
+        },
+        {
+          selector: "ExportNamedDeclaration[declaration]",
+          message:
+            "Separate the declaration and the export statement, using `export { ... }`.",
+        },
+        {
+          selector: "ExportDefaultDeclaration:has(> :declaration)",
+          message:
+            "Separate the declaration and the export statement, using `export default <variable name>`.",
         },
       ],
       "no-unneeded-ternary": "error",
@@ -347,15 +393,6 @@ export default [
       "jasmine/no-suite-dupes": ["error", "branch"],
       "jasmine/prefer-jasmine-matcher": "off",
       "jasmine/prefer-toHaveBeenCalledWith": "off",
-    },
-  },
-  {
-    files: jsFiles("test/fuzz"),
-    rules: {
-      "import/no-unresolved": [
-        "error",
-        { ignore: [".*/build/image_decoders/.*"] },
-      ],
     },
   },
   {

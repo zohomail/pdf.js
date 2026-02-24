@@ -104,6 +104,20 @@ class Doc extends PDFObject {
   }
 
   _initActions() {
+    for (const { obj } of this._fields.values()) {
+      // Some fields may have compute their values so we need to send them
+      // to the view.
+      const initialValue = obj._initialValue;
+      if (initialValue) {
+        this._send({
+          id: obj._id,
+          siblings: obj._siblings,
+          value: initialValue,
+          formattedValue: obj.value.toString(),
+        });
+      }
+    }
+
     const dontRun = new Set([
       "WillClose",
       "WillSave",
@@ -175,9 +189,16 @@ class Doc extends PDFObject {
 
   _runActions(name) {
     const actions = this._actions.get(name);
-    if (actions) {
-      for (const action of actions) {
+    if (!actions) {
+      return;
+    }
+    for (const action of actions) {
+      try {
         this._globalEval(action);
+      } catch (error) {
+        const serializedError = serializeError(error);
+        serializedError.value = `Error when executing "${name}" for document\n${serializedError.value}`;
+        this._send(serializedError);
       }
     }
   }
@@ -930,7 +951,7 @@ class Doc extends PDFObject {
       cName = parts[0];
     }
 
-    for (const [name, field] of this._fields.entries()) {
+    for (const [name, field] of this._fields) {
       if (name.endsWith(cName)) {
         if (!isNaN(childIndex)) {
           const children = this._getChildren(name);
@@ -964,7 +985,7 @@ class Doc extends PDFObject {
     const len = fieldName.length;
     const children = [];
     const pattern = /^\.[^.]+$/;
-    for (const [name, field] of this._fields.entries()) {
+    for (const [name, field] of this._fields) {
       if (name.startsWith(fieldName)) {
         const finalPart = name.slice(len);
         if (pattern.test(finalPart)) {
@@ -979,7 +1000,7 @@ class Doc extends PDFObject {
     // Get all the descendants which have a value.
     const children = [];
     const len = fieldName.length;
-    for (const [name, field] of this._fields.entries()) {
+    for (const [name, field] of this._fields) {
       if (name.startsWith(fieldName)) {
         const finalPart = name.slice(len);
         if (

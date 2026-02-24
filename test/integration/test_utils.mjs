@@ -17,10 +17,14 @@ import os from "os";
 
 const isMac = os.platform() === "darwin";
 
-function loadAndWait(filename, selector, zoom, setups, options) {
+function loadAndWait(filename, selector, zoom, setups, options, viewport) {
   return Promise.all(
     global.integrationSessions.map(async session => {
       const page = await session.browser.newPage();
+
+      if (viewport) {
+        await page.setViewport(viewport);
+      }
 
       // In order to avoid errors because of checks which depend on
       // a locale.
@@ -45,13 +49,15 @@ function loadAndWait(filename, selector, zoom, setups, options) {
             : options;
 
         // Options must be handled in app.js::_parseHashParams.
-        for (const [key, value] of Object.entries(optionsObject)) {
+        for (const [key, value] of Object.entries(optionsObject || {})) {
           app_options += `&${key}=${encodeURIComponent(value)}`;
         }
       }
-      const url = `${
-        global.integrationBaseUrl
-      }?file=/test/pdfs/${filename}#zoom=${zoom ?? "page-fit"}${app_options}`;
+
+      const fileParam = filename.startsWith("http")
+        ? filename
+        : `/test/pdfs/${filename}`;
+      const url = `${global.integrationBaseUrl}?file=${fileParam}#zoom=${zoom ?? "page-fit"}${app_options}`;
 
       if (setups) {
         // page.evaluateOnNewDocument allows us to run code before the
@@ -125,19 +131,21 @@ function createPromise(page, callback) {
   );
 }
 
+function createPromiseWithArgs(page, callback, args) {
+  return page.evaluateHandle(
+    // eslint-disable-next-line no-eval, no-shadow
+    (cb, args) => [new Promise(eval(`(${cb})`))],
+    callback.toString(),
+    args
+  );
+}
+
 function awaitPromise(promise) {
   return promise.evaluate(([p]) => p);
 }
 
 function closePages(pages) {
   return Promise.all(pages.map(([_, page]) => closeSinglePage(page)));
-}
-
-function isVisible(page, selector) {
-  return page.evaluate(
-    sel => document.querySelector(sel)?.checkVisibility(),
-    selector
-  );
 }
 
 async function closeSinglePage(page) {
@@ -157,6 +165,24 @@ async function waitForSandboxTrip(page) {
     }),
   ]);
   await awaitPromise(handle);
+}
+
+async function waitForDOMMutation(page, callback) {
+  return page.evaluateHandle(
+    cb => [
+      new Promise(resolve => {
+        const mutationObserver = new MutationObserver(mutationList => {
+          // eslint-disable-next-line no-eval
+          if (eval(`(${cb})`)(mutationList)) {
+            mutationObserver.disconnect();
+            resolve();
+          }
+        });
+        mutationObserver.observe(document, { childList: true, subtree: true });
+      }),
+    ],
+    callback.toString()
+  );
 }
 
 function waitForTimeout(milliseconds) {
@@ -199,6 +225,12 @@ async function waitAndClick(page, selector, clickOptions = {}) {
   await page.click(selector, clickOptions);
 }
 
+function waitForPointerUp(page) {
+  return createPromise(page, resolve => {
+    window.addEventListener("pointerup", resolve, { once: true });
+  });
+}
+
 function getSelector(id) {
   return `[data-element-id="${id}"]`;
 }
@@ -229,16 +261,8 @@ function getAnnotationSelector(id) {
   return `[data-annotation-id="${id}"]`;
 }
 
-function getSelectedEditors(page) {
-  return page.evaluate(() => {
-    const elements = document.querySelectorAll(".selectedEditor");
-    const results = [];
-    for (const { id } of elements) {
-      results.push(parseInt(id.split("_").at(-1)));
-    }
-    results.sort();
-    return results;
-  });
+function getThumbnailSelector(pageNumber) {
+  return `.thumbnailImageContainer[data-l10n-args='{"page":${pageNumber}}']`;
 }
 
 async function getSpanRectFromText(page, pageNumber, text) {
@@ -317,11 +341,25 @@ async function waitForEvent({
   }
 }
 
+async function countStorageEntries(page) {
+  return page.evaluate(
+    () => window.PDFViewerApplication.pdfDocument.annotationStorage.size
+  );
+}
+
 async function waitForStorageEntries(page, nEntries) {
   return page.waitForFunction(
     n => window.PDFViewerApplication.pdfDocument.annotationStorage.size === n,
     {},
     nEntries
+  );
+}
+
+async function countSerialized(page) {
+  return page.evaluate(
+    () =>
+      window.PDFViewerApplication.pdfDocument.annotationStorage.serializable.map
+        ?.size ?? 0
   );
 }
 
@@ -359,8 +397,23 @@ async function applyFunctionToEditor(page, editorId, func) {
   );
 }
 
+async function selectEditor(page, selector, count = 1) {
+  const editorRect = await getRect(page, selector);
+  await page.mouse.click(
+    editorRect.x + editorRect.width / 2,
+    editorRect.y + editorRect.height / 2,
+    { count }
+  );
+  await waitForSelectedEditor(page, selector);
+}
+
 async function waitForSelectedEditor(page, selector) {
   return page.waitForSelector(`${selector}.selectedEditor`);
+}
+
+async function unselectEditor(page, selector) {
+  await page.keyboard.press("Escape");
+  await waitForUnselectedEditor(page, selector);
 }
 
 async function waitForUnselectedEditor(page, selector) {
@@ -453,8 +506,8 @@ async function getFirstSerialized(page, filter = undefined) {
 function getAnnotationStorage(page) {
   return page.evaluate(() =>
     Object.fromEntries(
-      window.PDFViewerApplication.pdfDocument.annotationStorage.serializable.map?.entries() ||
-        []
+      window.PDFViewerApplication.pdfDocument.annotationStorage.serializable
+        .map || []
     )
   );
 }
@@ -479,23 +532,23 @@ function getEditors(page, kind) {
     const elements = document.querySelectorAll(`.${aKind}Editor`);
     const results = [];
     for (const { id } of elements) {
-      results.push(id);
+      results.push(parseInt(id.split("_").at(-1)));
     }
+    results.sort();
     return results;
   }, kind);
 }
 
-function getEditorDimensions(page, id) {
-  return page.evaluate(n => {
-    const element = document.getElementById(`pdfjs_internal_editor_${n}`);
-    const { style } = element;
+function getEditorDimensions(page, selector) {
+  return page.evaluate(sel => {
+    const { style } = document.querySelector(sel);
     return {
       left: style.left,
       top: style.top,
       width: style.width,
       height: style.height,
     };
-  }, id);
+  }, selector);
 }
 
 async function serializeBitmapDimensions(page) {
@@ -522,12 +575,25 @@ async function serializeBitmapDimensions(page) {
   });
 }
 
-async function dragAndDropAnnotation(page, startX, startY, tX, tY) {
+async function dragAndDrop(page, selector, translations, steps = 1) {
+  const rect = await getRect(page, selector);
+  const startX = rect.x + rect.width / 2;
+  const startY = rect.y + rect.height / 2;
   await page.mouse.move(startX, startY);
   await page.mouse.down();
-  await page.mouse.move(startX + tX, startY + tY);
+  for (const [tX, tY] of translations) {
+    await page.mouse.move(startX + tX, startY + tY, { steps });
+  }
   await page.mouse.up();
   await page.waitForSelector("#viewer:not(.noUserSelect)");
+}
+
+function waitForPageChanging(page) {
+  return createPromise(page, resolve => {
+    window.PDFViewerApplication.eventBus.on("pagechanging", resolve, {
+      once: true,
+    });
+  });
 }
 
 function waitForAnnotationEditorLayer(page) {
@@ -550,9 +616,29 @@ function waitForAnnotationModeChanged(page) {
   });
 }
 
-function waitForPageRendered(page) {
+function waitForPageRendered(page, pageNumber) {
+  return page.evaluateHandle(
+    number => [
+      new Promise(resolve => {
+        const { eventBus } = window.PDFViewerApplication;
+        eventBus.on("pagerendered", function handler(e) {
+          if (
+            !e.isDetailView &&
+            (number === undefined || e.pageNumber === number)
+          ) {
+            resolve();
+            eventBus.off("pagerendered", handler);
+          }
+        });
+      }),
+    ],
+    pageNumber
+  );
+}
+
+function waitForEditorMovedInDOM(page) {
   return createPromise(page, resolve => {
-    window.PDFViewerApplication.eventBus.on("pagerendered", resolve, {
+    window.PDFViewerApplication.eventBus.on("editormovedindom", resolve, {
       once: true,
     });
   });
@@ -592,11 +678,6 @@ async function firstPageOnTop(page) {
   return awaitPromise(handle);
 }
 
-async function hover(page, selector) {
-  const rect = await getRect(page, selector);
-  await page.mouse.move(rect.x + rect.width / 2, rect.y + rect.height / 2);
-}
-
 async function setCaretAt(page, pageNumber, text, position) {
   await page.evaluate(
     (pageN, string, pos) => {
@@ -620,6 +701,14 @@ async function kbCopy(page) {
   await page.keyboard.down(modifier);
   await page.keyboard.press("c", { commands: ["Copy"] });
   await page.keyboard.up(modifier);
+}
+async function kbCut(page) {
+  await page.keyboard.down(modifier);
+  await page.keyboard.press("x", { commands: ["Cut"] });
+  await page.keyboard.up(modifier);
+}
+async function kbDelete(page) {
+  await page.keyboard.press("Delete");
 }
 async function kbPaste(page) {
   await page.keyboard.down(modifier);
@@ -756,6 +845,12 @@ async function kbFocusPrevious(page) {
   await awaitPromise(handle);
 }
 
+async function kbSave(page) {
+  await page.keyboard.down(modifier);
+  await page.keyboard.press("s");
+  await page.keyboard.up(modifier);
+}
+
 async function switchToEditor(name, page, disable = false) {
   const modeChangedHandle = await createPromise(page, resolve => {
     window.PDFViewerApplication.eventBus.on(
@@ -773,17 +868,122 @@ async function switchToEditor(name, page, disable = false) {
   await awaitPromise(modeChangedHandle);
 }
 
+async function selectEditors(name, page) {
+  await kbSelectAll(page);
+  await page.waitForFunction(
+    () => !document.querySelector(`.${name}Editor:not(.selectedEditor)`)
+  );
+}
+
+async function clearEditors(name, page) {
+  await selectEditors(name, page);
+  await page.keyboard.press("Backspace");
+  await waitForStorageEntries(page, 0);
+}
+
+function waitForNoElement(page, selector) {
+  return page.waitForFunction(
+    sel => !document.querySelector(sel),
+    {},
+    selector
+  );
+}
+
+function isCanvasMonochrome(page, pageNumber, rectangle, color) {
+  return page.evaluate(
+    (rect, pageN, col) => {
+      const canvas = document.querySelector(
+        `.page[data-page-number = "${pageN}"] .canvasWrapper canvas`
+      );
+      const canvasRect = canvas.getBoundingClientRect();
+      const ctx = canvas.getContext("2d");
+      rect ||= canvasRect;
+      const { data } = ctx.getImageData(
+        rect.x - canvasRect.x,
+        rect.y - canvasRect.y,
+        rect.width,
+        rect.height
+      );
+      return new Uint32Array(data.buffer).every(x => x === col);
+    },
+    rectangle,
+    pageNumber,
+    color
+  );
+}
+
+async function getXY(page, selector) {
+  const rect = await getRect(page, selector);
+  return `${rect.x}::${rect.y}`;
+}
+
+function waitForPositionChange(page, selector, xy) {
+  return page.waitForFunction(
+    (sel, currentXY) => {
+      const bbox = document.querySelector(sel).getBoundingClientRect();
+      return `${bbox.x}::${bbox.y}` !== currentXY;
+    },
+    {},
+    selector,
+    xy
+  );
+}
+
+async function moveEditor(page, selector, n, pressKey) {
+  let xy = await getXY(page, selector);
+  for (let i = 0; i < n; i++) {
+    const handle = await waitForEditorMovedInDOM(page);
+    await pressKey();
+    await awaitPromise(handle);
+    await waitForPositionChange(page, selector, xy);
+    xy = await getXY(page, selector);
+  }
+}
+
+async function getNextEditorId(page) {
+  return page.evaluate(() =>
+    window.PDFViewerApplication.pdfViewer._layerProperties.annotationEditorUIManager.getNextEditorId()
+  );
+}
+
+async function highlightSpan(
+  page,
+  pageIndex,
+  text,
+  xRatio = 0.5,
+  yRatio = 0.5
+) {
+  const nextId = await getNextEditorId(page);
+  const rect = await getSpanRectFromText(page, pageIndex, text);
+  const x = rect.x + rect.width * xRatio;
+  const y = rect.y + rect.height * yRatio;
+  // We add a small delay between press and release to make sure that a
+  // pointerup event is triggered after selectionchange.
+  // It works with a value of 1ms, but we use 100ms to be sure.
+  await page.mouse.click(x, y, { count: 2, delay: 100 });
+  await page.waitForSelector(getEditorSelector(nextId));
+}
+
+// Unicode bidi isolation characters, Fluent adds these markers to the text.
+const FSI = "\u2068";
+const PDI = "\u2069";
+
 export {
   applyFunctionToEditor,
   awaitPromise,
+  clearEditors,
   clearInput,
   closePages,
   closeSinglePage,
   copy,
   copyToClipboard,
+  countSerialized,
+  countStorageEntries,
   createPromise,
-  dragAndDropAnnotation,
+  createPromiseWithArgs,
+  dragAndDrop,
   firstPageOnTop,
+  FSI,
   getAnnotationSelector,
   getAnnotationStorage,
   getComputedStyleSelector,
@@ -791,18 +991,23 @@ export {
   getEditors,
   getEditorSelector,
   getFirstSerialized,
+  getNextEditorId,
   getQuerySelector,
   getRect,
-  getSelectedEditors,
   getSelector,
   getSerialized,
   getSpanRectFromText,
-  hover,
-  isVisible,
+  getThumbnailSelector,
+  getXY,
+  highlightSpan,
+  isCanvasMonochrome,
   kbBigMoveDown,
   kbBigMoveLeft,
   kbBigMoveRight,
   kbBigMoveUp,
+  kbCopy,
+  kbCut,
+  kbDelete,
   kbDeleteLastWord,
   kbFocusNext,
   kbFocusPrevious,
@@ -811,22 +1016,32 @@ export {
   kbModifierDown,
   kbModifierUp,
   kbRedo,
+  kbSave,
   kbSelectAll,
   kbUndo,
   loadAndWait,
   mockClipboard,
+  moveEditor,
   paste,
   pasteFromClipboard,
+  PDI,
   scrollIntoView,
+  selectEditor,
+  selectEditors,
   serializeBitmapDimensions,
   setCaretAt,
   switchToEditor,
+  unselectEditor,
   waitAndClick,
   waitForAnnotationEditorLayer,
   waitForAnnotationModeChanged,
+  waitForDOMMutation,
   waitForEntryInStorage,
   waitForEvent,
+  waitForNoElement,
+  waitForPageChanging,
   waitForPageRendered,
+  waitForPointerUp,
   waitForSandboxTrip,
   waitForSelectedEditor,
   waitForSerialized,

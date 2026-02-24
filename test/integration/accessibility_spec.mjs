@@ -38,11 +38,11 @@ describe("accessibility", () => {
   describe("structure tree", () => {
     let pages;
 
-    beforeAll(async () => {
+    beforeEach(async () => {
       pages = await loadAndWait("structure_simple.pdf", ".structTree");
     });
 
-    afterAll(async () => {
+    afterEach(async () => {
       await closePages(pages);
     });
 
@@ -107,14 +107,14 @@ describe("accessibility", () => {
   describe("Annotation", () => {
     let pages;
 
-    beforeAll(async () => {
+    beforeEach(async () => {
       pages = await loadAndWait(
         "tracemonkey_a11y.pdf",
         ".textLayer .endOfContent"
       );
     });
 
-    afterAll(async () => {
+    afterEach(async () => {
       await closePages(pages);
     });
 
@@ -147,11 +147,11 @@ describe("accessibility", () => {
   describe("Annotations order", () => {
     let pages;
 
-    beforeAll(async () => {
+    beforeEach(async () => {
       pages = await loadAndWait("fields_order.pdf", ".annotationLayer");
     });
 
-    afterAll(async () => {
+    afterEach(async () => {
       await closePages(pages);
     });
 
@@ -180,11 +180,14 @@ describe("accessibility", () => {
   describe("Stamp annotation accessibility", () => {
     let pages;
 
-    beforeAll(async () => {
-      pages = await loadAndWait("tagged_stamp.pdf", ".annotationLayer");
+    beforeEach(async () => {
+      pages = await loadAndWait(
+        "tagged_stamp.pdf",
+        ".annotationLayer #pdfjs_internal_id_21R"
+      );
     });
 
-    afterAll(async () => {
+    afterEach(async () => {
       await closePages(pages);
     });
 
@@ -245,11 +248,11 @@ describe("accessibility", () => {
   describe("Figure in the content stream", () => {
     let pages;
 
-    beforeAll(async () => {
+    beforeEach(async () => {
       pages = await loadAndWait("bug1708040.pdf", ".textLayer");
     });
 
-    afterAll(async () => {
+    afterEach(async () => {
       await closePages(pages);
     });
 
@@ -277,6 +280,333 @@ describe("accessibility", () => {
           expect(ariaLabel)
             .withContext(`In ${browserName}`)
             .toEqual("A logo of a fox and a globe");
+        })
+      );
+    });
+  });
+
+  describe("No undefined id", () => {
+    let pages;
+
+    beforeEach(async () => {
+      pages = await loadAndWait("issue20102.pdf", ".textLayer");
+    });
+
+    afterEach(async () => {
+      await closePages(pages);
+    });
+
+    it("must check that span hasn't an 'undefined' id", async () => {
+      await Promise.all(
+        pages.map(async ([browserName, page]) => {
+          const id = await page.$eval("span.markedContent", span => span.id);
+          expect(id).withContext(`In ${browserName}`).toBe("");
+        })
+      );
+    });
+  });
+
+  describe("MathML in AF entry from LaTeX", () => {
+    let pages;
+
+    beforeEach(async () => {
+      pages = await loadAndWait("bug1937438_af_from_latex.pdf", ".textLayer");
+    });
+
+    afterEach(async () => {
+      await closePages(pages);
+    });
+
+    it("must check that the MathML is correctly inserted", async () => {
+      await Promise.all(
+        pages.map(async ([browserName, page]) => {
+          const isSanitizerSupported = await page.evaluate(() => {
+            try {
+              // eslint-disable-next-line no-undef
+              return typeof Sanitizer !== "undefined";
+            } catch {
+              return false;
+            }
+          });
+          if (isSanitizerSupported) {
+            const mathML = await page.$eval(
+              "span.structTree span[aria-owns='p58R_mc13'] > math",
+              el => el?.innerHTML ?? ""
+            );
+            expect(mathML)
+              .withContext(`In ${browserName}`)
+              .toEqual(
+                ` <msqrt><msup><mi>x</mi><mn>2</mn></msup></msqrt> <mo>=</mo> <mrow intent="absolute-value($x)"><mo>|</mo><mi arg="x">x</mi><mo>|</mo></mrow> `
+              );
+
+            // Check that the math corresponding element is hidden in the text
+            // layer.
+            const ariaHidden = await page.$eval("span#p58R_mc13", el =>
+              el.getAttribute("aria-hidden")
+            );
+            expect(ariaHidden).withContext(`In ${browserName}`).toEqual("true");
+          } else {
+            // eslint-disable-next-line no-console
+            console.log(
+              `Pending in Chrome: Sanitizer API (in ${browserName}) is not supported`
+            );
+          }
+        })
+      );
+    });
+  });
+
+  describe("MathML with some attributes in AF entry from LaTeX", () => {
+    let pages;
+
+    beforeEach(async () => {
+      pages = await loadAndWait("bug1997343.pdf", ".textLayer");
+    });
+
+    afterEach(async () => {
+      await closePages(pages);
+    });
+
+    it("must check that the MathML is correctly inserted", async () => {
+      await Promise.all(
+        pages.map(async ([browserName, page]) => {
+          const isSanitizerSupported = await page.evaluate(() => {
+            try {
+              // eslint-disable-next-line no-undef
+              return typeof Sanitizer !== "undefined";
+            } catch {
+              return false;
+            }
+          });
+          if (isSanitizerSupported) {
+            const mathML = await page.$eval(
+              "span.structTree span[aria-owns='p21R_mc64']",
+              el => el?.innerHTML ?? ""
+            );
+            expect(mathML)
+              .withContext(`In ${browserName}`)
+              .toEqual(
+                '<math display="block"> <msup> <mi>𝑛</mi> <mi>𝑝</mi> </msup> <mo lspace="0.278em" rspace="0.278em">=</mo> <mi>𝑛</mi> <mspace width="1.000em"></mspace> <mi> mod </mi> <mspace width="0.167em"></mspace> <mspace width="0.167em"></mspace> <mi>𝑝</mi> </math>'
+              );
+          } else {
+            // eslint-disable-next-line no-console
+            console.log(
+              `Pending in Chrome: Sanitizer API (in ${browserName}) is not supported`
+            );
+          }
+        })
+      );
+    });
+  });
+
+  describe("MathML tags in the struct tree", () => {
+    let pages;
+
+    beforeEach(async () => {
+      pages = await loadAndWait("bug1937438_mml_from_latex.pdf", ".textLayer");
+    });
+
+    afterEach(async () => {
+      await closePages(pages);
+    });
+
+    it("must check that the MathML is correctly inserted", async () => {
+      await Promise.all(
+        pages.map(async ([browserName, page]) => {
+          const mathML = await page.$eval(
+            "span.structTree span[role='group'] span[role='group']:last-child > span math",
+            el => el?.innerHTML ?? ""
+          );
+          expect(mathML)
+            .withContext(`In ${browserName}`)
+            .toEqual(
+              `<mi aria-owns="p76R_mc16">𝑐</mi><mo aria-owns="p76R_mc17">=</mo><msqrt><mrow><msup><mi aria-owns="p76R_mc18">𝑎</mi><mn aria-owns="p76R_mc19">2</mn></msup><mo aria-owns="p76R_mc20">+</mo><msup><mi aria-owns="p76R_mc21">𝑏</mi><mn aria-owns="p76R_mc22">2</mn></msup></mrow></msqrt>`
+            );
+          const ariaHidden = await page.$eval("span#p76R_mc16", el =>
+            el.getAttribute("aria-hidden")
+          );
+          expect(ariaHidden).withContext(`In ${browserName}`).toEqual("true");
+        })
+      );
+    });
+  });
+
+  describe("Artifacts must be aria-hidden", () => {
+    let pages;
+
+    beforeEach(async () => {
+      pages = await loadAndWait("bug1937438_mml_from_latex.pdf", ".textLayer");
+    });
+
+    afterEach(async () => {
+      await closePages(pages);
+    });
+
+    it("must check that some artifacts are aria-hidden", async () => {
+      await Promise.all(
+        pages.map(async ([browserName, page]) => {
+          const parentSquareRootHidden = await page.evaluate(() => {
+            for (const span of document.querySelectorAll(".textLayer span")) {
+              if (span.textContent === "√") {
+                return span.parentElement.getAttribute("aria-hidden");
+              }
+            }
+            return false;
+          });
+          expect(parentSquareRootHidden)
+            .withContext(`In ${browserName}`)
+            .toEqual("true");
+        })
+      );
+    });
+  });
+
+  describe("No alt-text with MathML", () => {
+    let pages;
+
+    beforeEach(async () => {
+      pages = await loadAndWait("bug2004951.pdf", ".textLayer");
+    });
+
+    afterEach(async () => {
+      await closePages(pages);
+    });
+
+    it("must check that there's no alt-text on the MathML node", async () => {
+      await Promise.all(
+        pages.map(async ([browserName, page]) => {
+          const isSanitizerSupported = await page.evaluate(() => {
+            try {
+              // eslint-disable-next-line no-undef
+              return typeof Sanitizer !== "undefined";
+            } catch {
+              return false;
+            }
+          });
+          const ariaLabel = await page.$eval(
+            "span[aria-owns='p3R_mc2']",
+            el => el.getAttribute("aria-label") || ""
+          );
+          if (isSanitizerSupported) {
+            expect(ariaLabel).withContext(`In ${browserName}`).toEqual("");
+          } else {
+            expect(ariaLabel)
+              .withContext(`In ${browserName}`)
+              .toEqual("cube root of , x plus y end cube root ");
+          }
+        })
+      );
+    });
+  });
+
+  describe("Text elements must be aria-hidden when there's MathML and annotations", () => {
+    let pages;
+
+    beforeEach(async () => {
+      pages = await loadAndWait("bug2009627.pdf", ".textLayer");
+    });
+
+    afterEach(async () => {
+      await closePages(pages);
+    });
+
+    it("must check that the text in text layer is aria-hidden", async () => {
+      await Promise.all(
+        pages.map(async ([browserName, page]) => {
+          const isSanitizerSupported = await page.evaluate(() => {
+            try {
+              // eslint-disable-next-line no-undef
+              return typeof Sanitizer !== "undefined";
+            } catch {
+              return false;
+            }
+          });
+          const ariaHidden = await page.evaluate(() =>
+            Array.from(
+              document.querySelectorAll(".structTree :has(> math)")
+            ).map(el =>
+              document
+                .getElementById(el.getAttribute("aria-owns"))
+                .getAttribute("aria-hidden")
+            )
+          );
+          if (isSanitizerSupported) {
+            expect(ariaHidden)
+              .withContext(`In ${browserName}`)
+              .toEqual(["true", "true", "true"]);
+          } else {
+            // eslint-disable-next-line no-console
+            console.log(
+              `Pending in Chrome: Sanitizer API (in ${browserName}) is not supported`
+            );
+          }
+        })
+      );
+    });
+  });
+
+  describe("A TH in a TR itself in a TBody is rowheader", () => {
+    let pages;
+
+    beforeEach(async () => {
+      pages = await loadAndWait("bug2014080.pdf", ".textLayer");
+    });
+
+    afterEach(async () => {
+      await closePages(pages);
+    });
+
+    it("must check that the table has the right structure", async () => {
+      await Promise.all(
+        pages.map(async ([browserName, page]) => {
+          let elementRole = await page.evaluate(() =>
+            Array.from(
+              document.querySelector(".structTree [role='table']").children
+            ).map(child => child.getAttribute("role"))
+          );
+
+          // THeader and TBody must be rowgroup.
+          expect(elementRole)
+            .withContext(`In ${browserName}`)
+            .toEqual(["rowgroup", "rowgroup"]);
+
+          elementRole = await page.evaluate(() =>
+            Array.from(
+              document.querySelector(
+                ".structTree [role='table'] > [role='rowgroup'] > [role='row']"
+              ).children
+            ).map(child => child.getAttribute("role"))
+          );
+
+          // THeader has 3 columnheader.
+          expect(elementRole)
+            .withContext(`In ${browserName}`)
+            .toEqual(["columnheader", "columnheader", "columnheader"]);
+
+          elementRole = await page.evaluate(() =>
+            Array.from(
+              document.querySelector(
+                ".structTree [role='table'] > [role='rowgroup']:nth-child(2)"
+              ).children
+            ).map(child => child.getAttribute("role"))
+          );
+
+          // TBody has 5 rows.
+          expect(elementRole)
+            .withContext(`In ${browserName}`)
+            .toEqual(["row", "row", "row", "row", "row"]);
+
+          elementRole = await page.evaluate(() =>
+            Array.from(
+              document.querySelector(
+                ".structTree [role='table'] > [role='rowgroup']:nth-child(2) > [role='row']:first-child"
+              ).children
+            ).map(child => child.getAttribute("role"))
+          );
+          // First row has a rowheader and 2 cells.
+          expect(elementRole)
+            .withContext(`In ${browserName}`)
+            .toEqual(["rowheader", "cell", "cell"]);
         })
       );
     });

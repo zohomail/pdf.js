@@ -14,8 +14,8 @@
  */
 
 /** @typedef {import("./event_utils").EventBus} EventBus */
-/** @typedef {import("./interfaces").IPDFLinkService} IPDFLinkService */
 
+import { isValidExplicitDest } from "pdfjs-lib";
 import { parseQueryString } from "./ui_utils.js";
 
 const DEFAULT_LINK_REL = "noopener noreferrer nofollow";
@@ -44,7 +44,6 @@ const LinkTarget = {
 /**
  * Performs navigation functions inside PDF, such as opening specified page,
  * or destination.
- * @implements {IPDFLinkService}
  */
 class PDFLinkService {
   externalLinkEnabled = true;
@@ -86,7 +85,7 @@ class PDFLinkService {
    * @type {number}
    */
   get pagesCount() {
-    return this.pdfDocument ? this.pdfDocument.numPages : 0;
+    return this.pdfDocument?.pagesMapper.pagesNumber || 0;
   }
 
   /**
@@ -191,6 +190,18 @@ class PDFLinkService {
       destArray: explicitDest,
       ignoreDestinationZoom: this._ignoreDestinationZoom,
     });
+
+    const ac = new AbortController();
+    this.eventBus._on(
+      "textlayerrendered",
+      evt => {
+        if (evt.pageNumber === pageNumber) {
+          evt.source.textLayer.div.focus();
+          ac.abort();
+        }
+      },
+      { signal: ac.signal }
+    );
   }
 
   /**
@@ -224,6 +235,22 @@ class PDFLinkService {
     }
 
     this.pdfViewer.scrollPageIntoView({ pageNumber });
+  }
+
+  /**
+   * Scrolls to a specific location in the PDF document.
+   * @param {number} pageNumber - The page number to scroll to.
+   * @param {number} x - The x-coordinate to scroll to in page coordinates.
+   * @param {number} y - The y-coordinate to scroll to in page coordinates.
+   * @param {Object} [options]
+   */
+  goToXY(pageNumber, x, y, options = {}) {
+    this.pdfViewer.scrollPageIntoView({
+      pageNumber,
+      destArray: [null, { name: "XYZ" }, x, y],
+      ignoreDestinationZoom: true,
+      ...options,
+    });
   }
 
   /**
@@ -396,7 +423,7 @@ class PDFLinkService {
       }
       // Support opening of PDF attachments in the Firefox PDF Viewer,
       // which uses a couple of non-standard hash parameters; refer to
-      // `DownloadManager.openOrDownloadData` in the firefoxcom.js file.
+      // `DownloadManager._getOpenDataUrl` in the firefoxcom.js file.
       if (!params.has("filename") || !params.has("filedest")) {
         return;
       }
@@ -415,7 +442,7 @@ class PDFLinkService {
       }
     } catch {}
 
-    if (typeof dest === "string" || PDFLinkService.#isValidExplicitDest(dest)) {
+    if (typeof dest === "string" || isValidExplicitDest(dest)) {
       this.goToDestination(dest);
       return;
     }
@@ -486,65 +513,8 @@ class PDFLinkService {
       optionalContentConfig
     );
   }
-
-  static #isValidExplicitDest(dest) {
-    if (!Array.isArray(dest) || dest.length < 2) {
-      return false;
-    }
-    const [page, zoom, ...args] = dest;
-    if (
-      !(
-        typeof page === "object" &&
-        Number.isInteger(page?.num) &&
-        Number.isInteger(page?.gen)
-      ) &&
-      !Number.isInteger(page)
-    ) {
-      return false;
-    }
-    if (!(typeof zoom === "object" && typeof zoom?.name === "string")) {
-      return false;
-    }
-    const argsLen = args.length;
-    let allowNull = true;
-    switch (zoom.name) {
-      case "XYZ":
-        if (argsLen < 2 || argsLen > 3) {
-          return false;
-        }
-        break;
-      case "Fit":
-      case "FitB":
-        return argsLen === 0;
-      case "FitH":
-      case "FitBH":
-      case "FitV":
-      case "FitBV":
-        if (argsLen > 1) {
-          return false;
-        }
-        break;
-      case "FitR":
-        if (argsLen !== 4) {
-          return false;
-        }
-        allowNull = false;
-        break;
-      default:
-        return false;
-    }
-    for (const arg of args) {
-      if (!(typeof arg === "number" || (allowNull && arg === null))) {
-        return false;
-      }
-    }
-    return true;
-  }
 }
 
-/**
- * @implements {IPDFLinkService}
- */
 class SimpleLinkService extends PDFLinkService {
   setDocument(pdfDocument, baseUrl = null) {}
 }

@@ -1,4 +1,4 @@
-# PDF.js [![Build Status](https://github.com/mozilla/pdf.js/workflows/CI/badge.svg?branch=master)](https://github.com/mozilla/pdf.js/actions?query=workflow%3ACI+branch%3Amaster)
+# PDF.js [![CI](https://github.com/mozilla/pdf.js/actions/workflows/ci.yml/badge.svg?query=branch%3Amaster)](https://github.com/mozilla/pdf.js/actions/workflows/ci.yml?query=branch%3Amaster) [![codecov](https://codecov.io/gh/mozilla/pdf.js/branch/master/graph/badge.svg)](https://codecov.io/gh/mozilla/pdf.js)
 
 [PDF.js](https://mozilla.github.io/pdf.js/) is a Portable Document Format (PDF) viewer that is built with HTML5.
 
@@ -14,7 +14,7 @@ get involved, visit:
 + [Issue Reporting Guide](https://github.com/mozilla/pdf.js/blob/master/.github/CONTRIBUTING.md)
 + [Code Contribution Guide](https://github.com/mozilla/pdf.js/wiki/Contributing)
 + [Frequently Asked Questions](https://github.com/mozilla/pdf.js/wiki/Frequently-Asked-Questions)
-+ [Good Beginner Bugs](https://github.com/mozilla/pdf.js/issues?direction=desc&labels=good-beginner-bug&page=1&sort=created&state=open)
++ [Good Beginner Bugs](https://github.com/mozilla/pdf.js/issues?q=is%3Aissue%20state%3Aopen%20label%3Agood-beginner-bug)
 + [Projects](https://github.com/mozilla/pdf.js/projects)
 
 Feel free to stop by our [Matrix room](https://chat.mozilla.org/#/room/#pdfjs:mozilla.org) for questions or guidance.
@@ -90,7 +90,7 @@ be loaded by `pdf.js`. The PDF.js files are large and should be minified for pro
 ## Using PDF.js in a web application
 
 To use PDF.js in a web application you can choose to use a pre-built version of the library
-or to build it from source. We supply pre-built versions for usage with NPM and Bower under
+or to build it from source. We supply pre-built versions for usage with NPM under
 the `pdfjs-dist` name. For more information and examples please refer to the
 [wiki page](https://github.com/mozilla/pdf.js/wiki/Setup-pdf.js-in-a-website) on this subject.
 

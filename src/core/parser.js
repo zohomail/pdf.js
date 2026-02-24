@@ -29,6 +29,7 @@ import {
 import { NullStream, Stream } from "./stream.js";
 import { Ascii85Stream } from "./ascii_85_stream.js";
 import { AsciiHexStream } from "./ascii_hex_stream.js";
+import { BrotliStream } from "./brotli_stream.js";
 import { CCITTFaxStream } from "./ccitt_stream.js";
 import { FlateStream } from "./flate_stream.js";
 import { Jbig2Stream } from "./jbig2_stream.js";
@@ -248,8 +249,12 @@ class Parser {
           }
           // Check that the "EI" sequence isn't part of the image data, since
           // that would cause the image to be truncated (fixes issue11124.pdf).
+          //
+          // Check more than the `followingBytes` to be able to find operators
+          // with multiple arguments, e.g. transform (cm) with decimal arguments
+          // (fixes issue19494.pdf).
           const tmpLexer = new Lexer(
-            new Stream(followingBytes.slice()),
+            new Stream(stream.peekBytes(5 * n)),
             knownCommands
           );
           // Reduce the number of (potential) warning messages.
@@ -818,6 +823,8 @@ class Parser {
           return new RunLengthStream(stream, maybeLength);
         case "JBIG2Decode":
           return new Jbig2Stream(stream, maybeLength, params);
+        case "BrotliDecode":
+          return new BrotliStream(stream, maybeLength);
       }
       warn(`Filter "${name}" is not supported.`);
       return stream;
@@ -929,9 +936,14 @@ class Lexer {
     if (ch < /* '0' = */ 0x30 || ch > /* '9' = */ 0x39) {
       const msg = `Invalid number: ${String.fromCharCode(ch)} (charCode ${ch})`;
 
-      if (isWhiteSpace(ch) || ch === /* EOF = */ -1) {
+      if (
+        isWhiteSpace(ch) ||
+        /* '(' = */ ch === 0x28 ||
+        /* '<' = */ ch === 0x3c ||
+        ch === /* EOF = */ -1
+      ) {
         // This is consistent with Adobe Reader (fixes issue9252.pdf,
-        // issue15604.pdf, bug1753983.pdf).
+        // issue15604.pdf, bug1753983.pdf, bug1953099.pdf).
         info(`Lexer.getNumber - "${msg}".`);
         return 0;
       }

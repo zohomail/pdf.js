@@ -167,30 +167,6 @@ describe("util", function () {
     });
   });
 
-  describe("ReadableStream", function () {
-    it("should return an Object", function () {
-      const readable = new ReadableStream();
-      expect(typeof readable).toEqual("object");
-    });
-
-    it("should have property getReader", function () {
-      const readable = new ReadableStream();
-      expect(typeof readable.getReader).toEqual("function");
-    });
-  });
-
-  describe("URL", function () {
-    it("should return an Object", function () {
-      const url = new URL("https://example.com");
-      expect(typeof url).toEqual("object");
-    });
-
-    it("should have property `href`", function () {
-      const url = new URL("https://example.com");
-      expect(typeof url.href).toEqual("string");
-    });
-  });
-
   describe("createValidAbsoluteUrl", function () {
     it("handles invalid URLs", function () {
       expect(createValidAbsoluteUrl(undefined, undefined)).toEqual(null);
@@ -247,6 +223,7 @@ describe("util", function () {
     it("should get a correctly formatted date", function () {
       const date = new Date(Date.UTC(3141, 5, 9, 2, 6, 53));
       expect(getModificationDate(date)).toEqual("31410609020653");
+      expect(getModificationDate(date.toString())).toEqual("31410609020653");
     });
   });
 

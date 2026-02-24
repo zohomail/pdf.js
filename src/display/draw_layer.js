@@ -24,15 +24,11 @@ import { shadow } from "../shared/util.js";
 class DrawLayer {
   #parent = null;
 
-  #id = 0;
-
   #mapping = new Map();
 
   #toUpdate = new Map();
 
-  constructor({ pageIndex }) {
-    this.pageIndex = pageIndex;
-  }
+  static #id = 0;
 
   setParent(parent) {
     if (!this.#parent) {
@@ -96,14 +92,14 @@ class DrawLayer {
   }
 
   draw(properties, isPathUpdatable = false, hasClip = false) {
-    const id = this.#id++;
+    const id = DrawLayer.#id++;
     const root = this.#createSVG();
 
     const defs = DrawLayer._svgFactory.createElement("defs");
     root.append(defs);
     const path = DrawLayer._svgFactory.createElement("path");
     defs.append(path);
-    const pathId = `path_p${this.pageIndex}_${id}`;
+    const pathId = `path_${id}`;
     path.setAttribute("id", pathId);
     path.setAttribute("vector-effect", "non-scaling-stroke");
 
@@ -129,13 +125,13 @@ class DrawLayer {
     // it composes with its parent with mix-blend-mode: multiply.
     // But the outline has a different mix-blend-mode, so we need to draw it in
     // its own SVG.
-    const id = this.#id++;
+    const id = DrawLayer.#id++;
     const root = this.#createSVG();
     const defs = DrawLayer._svgFactory.createElement("defs");
     root.append(defs);
     const path = DrawLayer._svgFactory.createElement("path");
     defs.append(path);
-    const pathId = `path_p${this.pageIndex}_${id}`;
+    const pathId = `path_${id}`;
     path.setAttribute("id", pathId);
     path.setAttribute("vector-effect", "non-scaling-stroke");
 
@@ -143,7 +139,7 @@ class DrawLayer {
     if (mustRemoveSelfIntersections) {
       const mask = DrawLayer._svgFactory.createElement("mask");
       defs.append(mask);
-      maskId = `mask_p${this.pageIndex}_${id}`;
+      maskId = `mask_${id}`;
       mask.setAttribute("id", maskId);
       mask.setAttribute("maskUnits", "objectBoundingBox");
       const rect = DrawLayer._svgFactory.createElement("rect");
@@ -183,11 +179,18 @@ class DrawLayer {
     this.updateProperties(id, properties);
   }
 
-  updateProperties(elementOrId, { root, bbox, rootClass, path }) {
+  updateProperties(elementOrId, properties) {
+    if (!properties) {
+      return;
+    }
+    const { root, bbox, rootClass, path } = properties;
     const element =
       typeof elementOrId === "number"
         ? this.#mapping.get(elementOrId)
         : elementOrId;
+    if (!element) {
+      return;
+    }
     if (root) {
       this.#updateProperties(element, root);
     }
@@ -201,10 +204,23 @@ class DrawLayer {
       }
     }
     if (path) {
-      const defs = element.firstChild;
-      const pathElement = defs.firstChild;
+      const defs = element.firstElementChild;
+      const pathElement = defs.firstElementChild;
       this.#updateProperties(pathElement, path);
     }
+  }
+
+  updateParent(id, layer) {
+    if (layer === this) {
+      return;
+    }
+    const root = this.#mapping.get(id);
+    if (!root) {
+      return;
+    }
+    layer.#parent.append(root);
+    this.#mapping.delete(id);
+    layer.#mapping.set(id, root);
   }
 
   remove(id) {

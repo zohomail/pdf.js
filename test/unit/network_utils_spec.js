@@ -15,15 +15,11 @@
 
 import {
   createHeaders,
-  createResponseStatusError,
+  createResponseError,
   extractFilenameFromHeader,
   validateRangeRequestCapabilities,
-  validateResponseStatus,
 } from "../../src/display/network_utils.js";
-import {
-  MissingPDFException,
-  UnexpectedResponseException,
-} from "../../src/shared/util.js";
+import { ResponseException } from "../../src/shared/util.js";
 
 describe("network_utils", function () {
   describe("createHeaders", function () {
@@ -370,45 +366,28 @@ describe("network_utils", function () {
     });
   });
 
-  describe("createResponseStatusError", function () {
-    it("handles missing PDF file responses", function () {
-      expect(createResponseStatusError(404, "https://foo.com/bar.pdf")).toEqual(
-        new MissingPDFException('Missing PDF "https://foo.com/bar.pdf".')
-      );
+  describe("createResponseError", function () {
+    function testCreateResponseError(url, status, missing) {
+      const error = createResponseError(status, url);
 
-      expect(createResponseStatusError(0, "file://foo.pdf")).toEqual(
-        new MissingPDFException('Missing PDF "file://foo.pdf".')
+      expect(error instanceof ResponseException).toEqual(true);
+      expect(error.message).toEqual(
+        `Unexpected server response (${status}) while retrieving PDF "${url.href}".`
       );
+      expect(error.status).toEqual(status);
+      expect(error.missing).toEqual(missing);
+    }
+
+    it("handles missing PDF file responses", function () {
+      testCreateResponseError(new URL("https://foo.com/bar.pdf"), 404, true);
+
+      testCreateResponseError(new URL("file://foo.pdf"), 0, true);
     });
 
     it("handles unexpected responses", function () {
-      expect(createResponseStatusError(302, "https://foo.com/bar.pdf")).toEqual(
-        new UnexpectedResponseException(
-          "Unexpected server response (302) while retrieving PDF " +
-            '"https://foo.com/bar.pdf".'
-        )
-      );
+      testCreateResponseError(new URL("https://foo.com/bar.pdf"), 302, false);
 
-      expect(createResponseStatusError(0, "https://foo.com/bar.pdf")).toEqual(
-        new UnexpectedResponseException(
-          "Unexpected server response (0) while retrieving PDF " +
-            '"https://foo.com/bar.pdf".'
-        )
-      );
-    });
-  });
-
-  describe("validateResponseStatus", function () {
-    it("accepts valid response statuses", function () {
-      expect(validateResponseStatus(200)).toEqual(true);
-      expect(validateResponseStatus(206)).toEqual(true);
-    });
-
-    it("rejects invalid response statuses", function () {
-      expect(validateResponseStatus(302)).toEqual(false);
-      expect(validateResponseStatus(404)).toEqual(false);
-      expect(validateResponseStatus(null)).toEqual(false);
-      expect(validateResponseStatus(undefined)).toEqual(false);
+      testCreateResponseError(new URL("https://foo.com/bar.pdf"), 0, false);
     });
   });
 });

@@ -13,17 +13,11 @@
  * limitations under the License.
  */
 
-import { RenderingStates, ScrollMode, SpreadMode } from "./ui_utils.js";
+import { ScrollMode, SpreadMode } from "./ui_utils.js";
 import { AppOptions } from "./app_options.js";
 import { LinkTarget } from "./pdf_link_service.js";
 import { PDFViewerApplication } from "./app.js";
-
-/* eslint-disable-next-line no-unused-vars */
-const pdfjsVersion =
-  typeof PDFJSDev !== "undefined" ? PDFJSDev.eval("BUNDLE_VERSION") : void 0;
-/* eslint-disable-next-line no-unused-vars */
-const pdfjsBuild =
-  typeof PDFJSDev !== "undefined" ? PDFJSDev.eval("BUNDLE_BUILD") : void 0;
+import { RenderingStates } from "./renderable_view.js";
 
 const AppConstants =
   typeof PDFJSDev === "undefined" || PDFJSDev.test("GENERIC")
@@ -40,6 +34,7 @@ function getViewerConfiguration() {
     principalContainer: document.getElementById("mainContainer"),
     mainContainer: document.getElementById("viewerContainer"),
     viewerContainer: document.getElementById("viewer"),
+    viewerAlert: document.getElementById("viewer-alert"),
     toolbar: {
       container: document.getElementById("toolbarContainer"),
       numPages: document.getElementById("numPages"),
@@ -51,6 +46,10 @@ function getViewerConfiguration() {
       zoomIn: document.getElementById("zoomInButton"),
       zoomOut: document.getElementById("zoomOutButton"),
       print: document.getElementById("printButton"),
+      editorCommentButton: document.getElementById("editorCommentButton"),
+      editorCommentParamsToolbar: document.getElementById(
+        "editorCommentParamsToolbar"
+      ),
       editorFreeTextButton: document.getElementById("editorFreeTextButton"),
       editorFreeTextParamsToolbar: document.getElementById(
         "editorFreeTextParamsToolbar"
@@ -67,6 +66,10 @@ function getViewerConfiguration() {
       editorStampButton: document.getElementById("editorStampButton"),
       editorStampParamsToolbar: document.getElementById(
         "editorStampParamsToolbar"
+      ),
+      editorSignatureButton: document.getElementById("editorSignatureButton"),
+      editorSignatureParamsToolbar: document.getElementById(
+        "editorSignatureParamsToolbar"
       ),
       download: document.getElementById("downloadButton"),
     },
@@ -102,24 +105,43 @@ function getViewerConfiguration() {
       ),
       documentPropertiesButton: document.getElementById("documentProperties"),
     },
-    sidebar: {
-      // Divs (and sidebar button)
+    viewsManager: {
       outerContainer: document.getElementById("outerContainer"),
-      sidebarContainer: document.getElementById("sidebarContainer"),
-      toggleButton: document.getElementById("sidebarToggleButton"),
-      resizer: document.getElementById("sidebarResizer"),
-      // Buttons
-      thumbnailButton: document.getElementById("viewThumbnail"),
-      outlineButton: document.getElementById("viewOutline"),
-      attachmentsButton: document.getElementById("viewAttachments"),
-      layersButton: document.getElementById("viewLayers"),
-      // Views
-      thumbnailView: document.getElementById("thumbnailView"),
-      outlineView: document.getElementById("outlineView"),
+      toggleButton: document.getElementById("viewsManagerToggleButton"),
+      sidebarContainer: document.getElementById("viewsManager"),
+      resizer: document.getElementById("viewsManagerResizer"),
+      thumbnailButton: document.getElementById("thumbnailsViewMenu"),
+      outlineButton: document.getElementById("outlinesViewMenu"),
+      attachmentsButton: document.getElementById("attachmentsViewMenu"),
+      layersButton: document.getElementById("layersViewMenu"),
+      viewsManagerSelectorButton: document.getElementById(
+        "viewsManagerSelectorButton"
+      ),
+      viewsManagerSelectorOptions: document.getElementById(
+        "viewsManagerSelectorOptions"
+      ),
+      thumbnailsView: document.getElementById("thumbnailsView"),
+      outlinesView: document.getElementById("outlinesView"),
       attachmentsView: document.getElementById("attachmentsView"),
       layersView: document.getElementById("layersView"),
-      // View-specific options
-      currentOutlineItemButton: document.getElementById("currentOutlineItem"),
+      viewsManagerAddFileButton: document.getElementById(
+        "viewsManagerAddFileButton"
+      ),
+      viewsManagerCurrentOutlineButton: document.getElementById(
+        "viewsManagerCurrentOutlineButton"
+      ),
+      viewsManagerHeaderLabel: document.getElementById(
+        "viewsManagerHeaderLabel"
+      ),
+      viewsManagerStatus: document.getElementById("viewsManagerStatus"),
+      manageMenu: {
+        button: document.getElementById("viewsManagerStatusActionButton"),
+        menu: document.getElementById("viewsManagerStatusActionOptions"),
+        copy: document.getElementById("viewsManagerStatusActionCopy"),
+        cut: document.getElementById("viewsManagerStatusActionCut"),
+        delete: document.getElementById("viewsManagerStatusActionDelete"),
+        saveAs: document.getElementById("viewsManagerStatusActionSaveAs"),
+      },
     },
     findBar: {
       bar: document.getElementById("findbar"),
@@ -198,10 +220,7 @@ function getViewerConfiguration() {
     altTextSettingsDialog: {
       dialog: document.getElementById("altTextSettingsDialog"),
       createModelButton: document.getElementById("createModelButton"),
-      aiModelSettings: document.getElementById("aiModelSettings"),
       learnMore: document.getElementById("altTextSettingsLearnMore"),
-      deleteModelButton: document.getElementById("deleteModelButton"),
-      downloadModelButton: document.getElementById("downloadModelButton"),
       showAltTextDialogButton: document.getElementById(
         "showAltTextDialogButton"
       ),
@@ -210,19 +229,84 @@ function getViewerConfiguration() {
       ),
       closeButton: document.getElementById("altTextSettingsCloseButton"),
     },
+    addSignatureDialog: {
+      dialog: document.getElementById("addSignatureDialog"),
+      panels: document.getElementById("addSignatureActionContainer"),
+      typeButton: document.getElementById("addSignatureTypeButton"),
+      typeInput: document.getElementById("addSignatureTypeInput"),
+      drawButton: document.getElementById("addSignatureDrawButton"),
+      drawSVG: document.getElementById("addSignatureDraw"),
+      drawPlaceholder: document.getElementById("addSignatureDrawPlaceholder"),
+      drawThickness: document.getElementById("addSignatureDrawThickness"),
+      imageButton: document.getElementById("addSignatureImageButton"),
+      imageSVG: document.getElementById("addSignatureImage"),
+      imagePlaceholder: document.getElementById("addSignatureImagePlaceholder"),
+      imagePicker: document.getElementById("addSignatureFilePicker"),
+      imagePickerLink: document.getElementById("addSignatureImageBrowse"),
+      description: document.getElementById("addSignatureDescription"),
+      clearButton: document.getElementById("clearSignatureButton"),
+      saveContainer: document.getElementById("addSignatureSaveContainer"),
+      saveCheckbox: document.getElementById("addSignatureSaveCheckbox"),
+      errorBar: document.getElementById("addSignatureError"),
+      errorTitle: document.getElementById("addSignatureErrorTitle"),
+      errorDescription: document.getElementById("addSignatureErrorDescription"),
+      errorCloseButton: document.getElementById("addSignatureErrorCloseButton"),
+      cancelButton: document.getElementById("addSignatureCancelButton"),
+      addButton: document.getElementById("addSignatureAddButton"),
+    },
+    editSignatureDialog: {
+      dialog: document.getElementById("editSignatureDescriptionDialog"),
+      description: document.getElementById("editSignatureDescription"),
+      editSignatureView: document.getElementById("editSignatureView"),
+      cancelButton: document.getElementById("editSignatureCancelButton"),
+      updateButton: document.getElementById("editSignatureUpdateButton"),
+    },
     annotationEditorParams: {
+      editorCommentsSidebar: document.getElementById("editorCommentsSidebar"),
+      editorCommentsSidebarCount: document.getElementById(
+        "editorCommentsSidebarCount"
+      ),
+      editorCommentsSidebarTitle: document.getElementById(
+        "editorCommentsSidebarTitle"
+      ),
+      editorCommentsSidebarCloseButton: document.getElementById(
+        "editorCommentsSidebarCloseButton"
+      ),
+      editorCommentsSidebarList: document.getElementById(
+        "editorCommentsSidebarList"
+      ),
+      editorCommentsSidebarResizer: document.getElementById(
+        "editorCommentsSidebarResizer"
+      ),
       editorFreeTextFontSize: document.getElementById("editorFreeTextFontSize"),
       editorFreeTextColor: document.getElementById("editorFreeTextColor"),
       editorInkColor: document.getElementById("editorInkColor"),
       editorInkThickness: document.getElementById("editorInkThickness"),
       editorInkOpacity: document.getElementById("editorInkOpacity"),
       editorStampAddImage: document.getElementById("editorStampAddImage"),
+      editorSignatureAddSignature: document.getElementById(
+        "editorSignatureAddSignature"
+      ),
       editorFreeHighlightThickness: document.getElementById(
         "editorFreeHighlightThickness"
       ),
       editorHighlightShowAll: document.getElementById("editorHighlightShowAll"),
     },
     printContainer: document.getElementById("printContainer"),
+    editorUndoBar: {
+      container: document.getElementById("editorUndoBar"),
+      message: document.getElementById("editorUndoBarMessage"),
+      undoButton: document.getElementById("editorUndoBarUndoButton"),
+      closeButton: document.getElementById("editorUndoBarCloseButton"),
+    },
+    editCommentDialog: {
+      dialog: document.getElementById("commentManagerDialog"),
+      toolbar: document.getElementById("commentManagerToolbar"),
+      title: document.getElementById("commentManagerTitle"),
+      textInput: document.getElementById("commentManagerTextInput"),
+      cancelButton: document.getElementById("commentManagerCancelButton"),
+      saveButton: document.getElementById("commentManagerSaveButton"),
+    },
   };
 }
 
@@ -248,7 +332,7 @@ function webViewerLoad() {
     } catch (ex) {
       // The viewer could be in e.g. a cross-origin <iframe> element,
       // fallback to dispatching the event at the current `document`.
-      console.error(`webviewerloaded: ${ex}`);
+      console.error("webviewerloaded:", ex);
       document.dispatchEvent(event);
     }
   }
@@ -269,7 +353,7 @@ if (
 }
 
 export {
+  PDFViewerApplication,
   AppConstants as PDFViewerApplicationConstants,
   AppOptions as PDFViewerApplicationOptions,
-  PDFViewerApplication,
 };

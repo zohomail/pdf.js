@@ -17,10 +17,13 @@
 import { AppOptions } from "./app_options.js";
 import { BaseExternalServices } from "./external_services.js";
 import { BasePreferences } from "./preferences.js";
+import { DownloadManager as GenericDownloadManager } from "./download_manager.js";
 import { GenericL10n } from "./genericl10n.js";
 import { GenericScripting } from "./generic_scripting.js";
+import { SignatureStorage } from "./generic_signature_storage.js";
 
 // These strings are from chrome/app/resources/generated_resources_*.xtb.
+// eslint-disable-next-line sort-imports
 import i18nFileAccessLabels from "./chrome-i18n-allow-access-to-file-urls.json" with { type: "json" };
 
 if (typeof PDFJSDev === "undefined" || !PDFJSDev.test("CHROME")) {
@@ -308,6 +311,25 @@ function setReferer(url, callback) {
   }
 }
 
+/**
+ * This "should" really extend the `BaseDownloadManager` class,
+ * however doing it this way instead reduces code duplication.
+ */
+class DownloadManager extends GenericDownloadManager {
+  _getOpenDataUrl(blobUrl, filename, dest = null) {
+    // In the Chrome extension, the URL is rewritten using the history API
+    // in viewer.js, so an absolute URL must be generated.
+    let url =
+      chrome.runtime.getURL("/content/web/viewer.html") +
+      "?file=" +
+      encodeURIComponent(blobUrl + "#" + filename);
+    if (dest) {
+      url += `#${escape(dest)}`;
+    }
+    return url;
+  }
+}
+
 // chrome.storage.sync is not supported in every Chromium-derivate.
 // Note: The background page takes care of migrating values from
 // chrome.storage.local to chrome.storage.sync when needed.
@@ -419,6 +441,10 @@ class ExternalServices extends BaseExternalServices {
   createScripting() {
     return new GenericScripting(AppOptions.get("sandboxBundleSrc"));
   }
+
+  createSignatureStorage(eventBus, signal) {
+    return new SignatureStorage(eventBus, signal);
+  }
 }
 
 class MLManager {
@@ -431,4 +457,4 @@ class MLManager {
   }
 }
 
-export { ExternalServices, initCom, MLManager, Preferences };
+export { DownloadManager, ExternalServices, initCom, MLManager, Preferences };

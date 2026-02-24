@@ -13,12 +13,9 @@
  * limitations under the License.
  */
 
-/** @typedef {import("./interfaces").IL10n} IL10n */
-
 /**
  * NOTE: The L10n-implementations should use lowercase language-codes
  *       internally.
- * @implements {IL10n}
  */
 class L10n {
   #dir;
@@ -85,7 +82,7 @@ class L10n {
     try {
       await this.#l10n.translateElements([element]);
     } catch (ex) {
-      console.error(`translateOnce: "${ex}".`);
+      console.error("translateOnce:", ex);
     }
   }
 

@@ -15,7 +15,8 @@
 
 /** @typedef {import("./event_utils").EventBus} EventBus */
 
-import { apiPageLayoutToViewerModes, RenderingStates } from "./ui_utils.js";
+import { apiPageLayoutToViewerModes } from "./ui_utils.js";
+import { RenderingStates } from "./renderable_view.js";
 import { shadow } from "pdfjs-lib";
 
 /**
@@ -105,7 +106,7 @@ class PDFScriptingManager {
     try {
       this.#scripting = this.#initScripting();
     } catch (error) {
-      console.error(`setDocument: "${error.message}".`);
+      console.error("setDocument:", error);
 
       await this.#destroyScripting();
       return;
@@ -192,7 +193,7 @@ class PDFScriptingManager {
 
       eventBus.dispatch("sandboxcreated", { source: this });
     } catch (error) {
-      console.error(`setDocument: "${error.message}".`);
+      console.error("setDocument:", error);
 
       await this.#destroyScripting();
       return;

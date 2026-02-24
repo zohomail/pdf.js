@@ -13,11 +13,7 @@
  * limitations under the License.
  */
 
-import {
-  assert,
-  MissingPDFException,
-  UnexpectedResponseException,
-} from "../shared/util.js";
+import { assert, ResponseException } from "../shared/util.js";
 import { getFilenameFromContentDispositionHeader } from "./content_disposition.js";
 import { isPdfFile } from "./display_utils.js";
 
@@ -37,13 +33,8 @@ function createHeaders(isHttp, httpHeaders) {
 }
 
 function getResponseOrigin(url) {
-  try {
-    return new URL(url).origin;
-  } catch {
-    // `new URL()` will throw on incorrect data.
-  }
   // Notably, null is distinct from "null" string (e.g. from file:-URLs).
-  return null;
+  return URL.parse(url)?.origin ?? null;
 }
 
 function validateRangeRequestCapabilities({
@@ -108,25 +99,27 @@ function extractFilenameFromHeader(responseHeaders) {
   return null;
 }
 
-function createResponseStatusError(status, url) {
-  if (status === 404 || (status === 0 && url.startsWith("file:"))) {
-    return new MissingPDFException('Missing PDF "' + url + '".');
-  }
-  return new UnexpectedResponseException(
-    `Unexpected server response (${status}) while retrieving PDF "${url}".`,
-    status
+function createResponseError(status, url) {
+  return new ResponseException(
+    `Unexpected server response (${status}) while retrieving PDF "${url.href}".`,
+    status,
+    /* missing = */ status === 404 || (status === 0 && url.protocol === "file:")
   );
 }
 
-function validateResponseStatus(status) {
-  return status === 200 || status === 206;
+function ensureResponseOrigin(rangeOrigin, origin) {
+  if (rangeOrigin !== origin) {
+    throw new Error(
+      `Expected range response-origin "${rangeOrigin}" to match "${origin}".`
+    );
+  }
 }
 
 export {
   createHeaders,
-  createResponseStatusError,
+  createResponseError,
+  ensureResponseOrigin,
   extractFilenameFromHeader,
   getResponseOrigin,
   validateRangeRequestCapabilities,
-  validateResponseStatus,
 };
